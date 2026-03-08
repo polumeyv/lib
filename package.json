@@ -1,0 +1,40 @@
+{
+	"name": "@polumeyv/clients",
+	"version": "0.0.1",
+	"description": "Effect-based infrastructure clients for Bun applications",
+	"license": "MIT",
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/polumeyv/clients-lib.git"
+	},
+	"keywords": ["effect", "bun", "postgres", "redis", "stripe", "ses", "jose", "webauthn"],
+	"scripts": {
+		"release": "npx changelogen --release --push"
+	},
+	"type": "module",
+	"files": ["src"],
+	"exports": {
+		"./redis": { "types": "./src/redis/index.ts", "default": "./src/redis/index.ts" },
+		"./postgres": { "types": "./src/postgres/index.ts", "default": "./src/postgres/index.ts" },
+		"./stripe": { "types": "./src/stripe/index.ts", "default": "./src/stripe/index.ts" },
+		"./mailcow": { "types": "./src/mailcow/index.ts", "default": "./src/mailcow/index.ts" },
+		"./ses": { "types": "./src/ses/index.ts", "default": "./src/ses/index.ts" },
+		"./jose": { "types": "./src/jose/index.ts", "default": "./src/jose/index.ts" },
+		"./webauthn": { "types": "./src/webauthn/index.ts", "default": "./src/webauthn/index.ts" }
+	},
+	"peerDependencies": {
+		"effect": "^3.19.0"
+	},
+	"dependencies": {
+		"@aws-sdk/client-sesv2": "^3.978.0",
+		"@simplewebauthn/server": "^13.0.0",
+		"jose": "^6.0.0",
+		"stripe": "^20.2.0"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.3.6"
+	}
+}
