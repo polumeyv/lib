@@ -1,6 +1,6 @@
 {
 	"name": "@polumeyv/clients",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Effect-based infrastructure clients for Bun applications",
 	"license": "MIT",
 	"publishConfig": {

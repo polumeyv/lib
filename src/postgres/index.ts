@@ -16,6 +16,7 @@
  * // Usage in a service
  * const pg = yield* Postgres;
  * const rows = yield* pg.use((sql) => sql`SELECT * FROM users WHERE id = ${id}`);
+ * const user = yield* pg.first((sql) => sql`SELECT * FROM users WHERE id = ${id}`);
  * ```
  */
 import { SQL } from 'bun';
@@ -25,6 +26,7 @@ export class PostgresError extends Data.TaggedError('PostgresError')<{ cause?: u
 
 interface PostgresImpl {
 	use: <T>(fn: (sql: InstanceType<typeof SQL>) => T) => Effect.Effect<Awaited<T>, PostgresError, never>;
+	first: <T>(fn: (sql: InstanceType<typeof SQL>) => Promise<T[]>) => Effect.Effect<T, PostgresError, never>;
 }
 
 export class Postgres extends Context.Tag('Postgres')<Postgres, PostgresImpl>() {}
@@ -38,8 +40,8 @@ export const makePostgres = (url: string) =>
 			}),
 			(sql) => Effect.promise(() => sql.close()),
 		),
-		(sql) =>
-			Postgres.of({
+		(sql) => {
+			const impl: PostgresImpl = {
 				use: (fn) =>
 					Effect.flatMap(
 						Effect.try({
@@ -54,5 +56,8 @@ export const makePostgres = (url: string) =>
 									})
 								: Effect.succeed(result),
 					),
-			}),
+				first: (fn) => Effect.map(impl.use(fn), (rows) => rows[0]),
+			};
+			return Postgres.of(impl);
+		},
 	);
