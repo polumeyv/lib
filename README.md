@@ -7,7 +7,6 @@ Effect-based infrastructure clients for Bun applications. Each client exports a 
 - `@polumeyv/clients/postgres` — Bun-native SQL connection pool (scoped)
 - `@polumeyv/clients/redis` — Bun-native Redis connection (scoped)
 - `@polumeyv/clients/stripe` — Stripe API + webhook verification
-- `@polumeyv/clients/mailcow` — Mailcow mail server API
 - `@polumeyv/clients/ses` — AWS SES v2 email (with dev mode logging)
 
 ## Usage
@@ -17,7 +16,6 @@ import { Config, Effect, Layer } from 'effect';
 import { Postgres, makePostgres } from '@polumeyv/clients/postgres';
 import { Redis, makeRedis } from '@polumeyv/clients/redis';
 import { Stripe, makeStripe, StripeWebhook, makeStripeWebhook } from '@polumeyv/clients/stripe';
-import { Mailcow, makeMailcow } from '@polumeyv/clients/mailcow';
 import { Ses, makeSes } from '@polumeyv/clients/ses';
 
 // Scoped clients — Layer.scoped + Effect.flatMap
@@ -31,18 +29,13 @@ const StripeWebhookLive = Layer.effect(StripeWebhook, Effect.map(
   ([sk, ws]) => makeStripeWebhook(sk, ws),
 ));
 
-const MailcowLive = Layer.effect(Mailcow, Effect.map(
-  Effect.all([Config.string('MAILCOW_HOST'), Config.string('MAILCOW_API_KEY'), Config.string('MAILCOW_SERVER_IP'), Config.string('MAILCOW_MAIL_HOST')]),
-  ([host, apiKey, serverIp, mailHost]) => makeMailcow(host, apiKey, serverIp, mailHost),
-));
-
 const SesLive = Layer.effect(Ses, Effect.flatMap(
   Config.string('EMAIL_ENABLED').pipe(Config.map((v) => v === 'true')),
   makeSes,
 ));
 
 // Compose into your app runtime
-const InfraLive = Layer.mergeAll(PostgresLive, RedisLive, StripeLive, StripeWebhookLive, MailcowLive, SesLive);
+const InfraLive = Layer.mergeAll(PostgresLive, RedisLive, StripeLive, StripeWebhookLive, SesLive);
 ```
 
 Then use them in your services:

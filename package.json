@@ -1,6 +1,6 @@
 {
 	"name": "@polumeyv/clients",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "Effect-based infrastructure clients for Bun applications",
 	"license": "MIT",
 	"publishConfig": {
@@ -20,7 +20,6 @@
 		"./redis": { "types": "./src/redis/index.ts", "default": "./src/redis/index.ts" },
 		"./postgres": { "types": "./src/postgres/index.ts", "default": "./src/postgres/index.ts" },
 		"./stripe": { "types": "./src/stripe/index.ts", "default": "./src/stripe/index.ts" },
-		"./mailcow": { "types": "./src/mailcow/index.ts", "default": "./src/mailcow/index.ts" },
 		"./ses": { "types": "./src/ses/index.ts", "default": "./src/ses/index.ts" }
 	},
 	"peerDependencies": {
