@@ -1,6 +1,6 @@
 {
 	"name": "@polumeyv/clients",
-	"version": "0.1.4",
+	"version": "0.1.5",
 	"description": "Effect-based infrastructure clients for Bun applications",
 	"license": "MIT",
 	"publishConfig": {
@@ -28,9 +28,6 @@
 	},
 	"dependencies": {
 		"@aws-sdk/client-sesv2": "^3.978.0",
-		"stripe": "^20.2.0"
-	},
-	"devDependencies": {
-		"@types/bun": "^1.3.6"
+		"stripe": "^21.0.1"
 	}
 }
