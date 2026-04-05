@@ -20,7 +20,7 @@
  */
 import { SESv2Client, SendEmailCommand, type Attachment } from '@aws-sdk/client-sesv2';
 import { Context, Data, Effect } from 'effect';
-import type { HttpStatusError } from '../error';
+import type { HttpStatusError } from './error';
 
 export class SesError extends Data.TaggedError('SesError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
 	get statusCode() { return 500 as const; }

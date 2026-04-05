@@ -21,7 +21,7 @@
  */
 import { SQL } from 'bun';
 import { Context, Data, Effect } from 'effect';
-import type { HttpStatusError } from '../error';
+import type { HttpStatusError } from './error';
 
 export class PostgresError extends Data.TaggedError('PostgresError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
 	get statusCode() { return 500 as const; }

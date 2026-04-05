@@ -17,17 +17,18 @@
 	"type": "module",
 	"files": ["src"],
 	"exports": {
-		"./redis": { "types": "./src/redis/index.ts", "default": "./src/redis/index.ts" },
-		"./postgres": { "types": "./src/postgres/index.ts", "default": "./src/postgres/index.ts" },
-		"./stripe": { "types": "./src/stripe/index.ts", "default": "./src/stripe/index.ts" },
-		"./ses": { "types": "./src/ses/index.ts", "default": "./src/ses/index.ts" },
-		"./error": { "types": "./src/error.ts", "default": "./src/error.ts" }
+		"./postgres": { "types": "./src/postgres.ts", "default": "./src/postgres.ts" },
+		"./redis": { "types": "./src/redis.ts", "default": "./src/redis.ts" },
+		"./ses": { "types": "./src/ses.ts", "default": "./src/ses.ts" },
+		"./stripe": { "types": "./src/stripe.ts", "default": "./src/stripe.ts" },
+		"./error": { "types": "./src/error.ts", "default": "./src/error.ts" },
+		"./rate-limit": { "types": "./src/rate-limit.ts", "default": "./src/rate-limit.ts" }
 	},
 	"peerDependencies": {
-		"effect": "^3.19.0"
+		"effect": "catalog:infra"
 	},
 	"dependencies": {
-		"@aws-sdk/client-sesv2": "^3.978.0",
-		"stripe": "^21.0.1"
+		"@aws-sdk/client-sesv2": "catalog:infra",
+		"stripe": "catalog:infra"
 	}
 }
