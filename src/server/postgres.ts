@@ -1,5 +1,5 @@
 /**
- * @module @polumeyv/clients/postgres
+ * @module @polumeyv/utils/server/postgres
  *
  * Effect-based Postgres client using Bun's native `SQL` driver.
  *

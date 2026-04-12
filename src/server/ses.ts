@@ -1,5 +1,5 @@
 /**
- * @module @polumeyv/clients/ses
+ * @module @polumeyv/utils/server/ses
  *
  * Effect-based AWS SES v2 email client.
  *
@@ -41,8 +41,8 @@ interface SesImpl {
 
 export class Ses extends Context.Tag('Ses')<Ses, SesImpl>() {}
 
-export const makeSes = (enabled: boolean) =>
-	Effect.map(Effect.sync(() => new SESv2Client()), (client) =>
+export const makeSes = (enabled: boolean, region: string) =>
+	Effect.map(Effect.sync(() => new SESv2Client({ region })), (client) =>
 		Ses.of({
 			sendEmail: ({ from, to, subject, html, text, attachments }) =>
 				enabled

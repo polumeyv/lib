@@ -1,22 +1,22 @@
-# @polumeyv/clients
+# @polumeyv/utils
 
 Effect-based infrastructure clients for Bun applications. Each client exports a Context tag and a factory function — the consuming app reads its own config and constructs layers.
 
 ## Clients
 
-- `@polumeyv/clients/postgres` — Bun-native SQL connection pool (scoped)
-- `@polumeyv/clients/redis` — Bun-native Redis connection (scoped)
-- `@polumeyv/clients/stripe` — Stripe API + webhook verification
-- `@polumeyv/clients/ses` — AWS SES v2 email (with dev mode logging)
+- `@polumeyv/utils/postgres` — Bun-native SQL connection pool (scoped)
+- `@polumeyv/utils/redis` — Bun-native Redis connection (scoped)
+- `@polumeyv/utils/stripe` — Stripe API + webhook verification
+- `@polumeyv/utils/ses` — AWS SES v2 email (with dev mode logging)
 
 ## Usage
 
 ```ts
 import { Config, Effect, Layer } from 'effect';
-import { Postgres, makePostgres } from '@polumeyv/clients/postgres';
-import { Redis, makeRedis } from '@polumeyv/clients/redis';
-import { Stripe, makeStripe, StripeWebhook, makeStripeWebhook } from '@polumeyv/clients/stripe';
-import { Ses, makeSes } from '@polumeyv/clients/ses';
+import { Postgres, makePostgres } from '@polumeyv/utils/postgres';
+import { Redis, makeRedis } from '@polumeyv/utils/redis';
+import { Stripe, makeStripe, StripeWebhook, makeStripeWebhook } from '@polumeyv/utils/stripe';
+import { Ses, makeSes } from '@polumeyv/utils/ses';
 
 // Scoped clients — Layer.scoped + Effect.flatMap
 const PostgresLive = Layer.scoped(Postgres, Effect.flatMap(Config.string('DATABASE_URL'), makePostgres));

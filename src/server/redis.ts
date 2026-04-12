@@ -1,5 +1,5 @@
 /**
- * @module @polumeyv/clients/redis
+ * @module @polumeyv/utils/server/redis
  *
  * Effect-based Redis client using Bun's native `RedisClient`.
  *

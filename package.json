@@ -1,5 +1,5 @@
 {
-	"name": "@polumeyv/clients",
+	"name": "@polumeyv/utils",
 	"version": "0.1.5",
 	"description": "Effect-based infrastructure clients for Bun applications",
 	"license": "MIT",
@@ -8,21 +8,36 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/polumeyv/clients-lib.git"
+		"url": "https://github.com/polumeyv/utils-lib.git"
 	},
-	"keywords": ["effect", "bun", "postgres", "redis", "stripe", "ses"],
+	"keywords": [
+		"effect",
+		"bun",
+		"postgres",
+		"redis",
+		"stripe",
+		"ses"
+	],
 	"scripts": {
 		"release": "npx changelogen --release --push"
 	},
 	"type": "module",
-	"files": ["src"],
+	"files": [
+		"src"
+	],
 	"exports": {
-		"./postgres": { "types": "./src/postgres.ts", "default": "./src/postgres.ts" },
-		"./redis": { "types": "./src/redis.ts", "default": "./src/redis.ts" },
-		"./ses": { "types": "./src/ses.ts", "default": "./src/ses.ts" },
-		"./stripe": { "types": "./src/stripe.ts", "default": "./src/stripe.ts" },
-		"./error": { "types": "./src/error/index.ts", "default": "./src/error/index.ts" },
-		"./rate-limit": { "types": "./src/rate-limit.ts", "default": "./src/rate-limit.ts" }
+		"./server": {
+			"types": "./src/server/index.ts",
+			"default": "./src/server/index.ts"
+		},
+		"./server/error": {
+			"types": "./src/server/error/index.ts",
+			"default": "./src/server/error/index.ts"
+		},
+		"./public/types": {
+			"types": "./src/public/types/index.ts",
+			"default": "./src/public/types/index.ts"
+		}
 	},
 	"peerDependencies": {
 		"effect": "catalog:infra"
