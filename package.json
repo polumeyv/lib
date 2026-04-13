@@ -40,10 +40,10 @@
 		}
 	},
 	"peerDependencies": {
-		"effect": "catalog:infra"
+		"effect": "^3.21.0"
 	},
 	"dependencies": {
-		"@aws-sdk/client-sesv2": "catalog:infra",
-		"stripe": "catalog:infra"
+		"@aws-sdk/client-sesv2": "^3.1024.0",
+		"stripe": "^22.0.0"
 	}
 }
