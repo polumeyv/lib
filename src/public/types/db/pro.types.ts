@@ -175,7 +175,7 @@ export const ProFinancialSettings = Schema.Struct({
 export type ProFinancialSettingsType = typeof ProFinancialSettings.Type;
 
 export const ProAddresses = Schema.Struct({
-	b_id: Schema.String,
+	owner_id: Schema.String,
 	address_type: Schema.String,
 	street: Schema.String,
 	unit: Schema.NullOr(Schema.String),
