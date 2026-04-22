@@ -44,12 +44,6 @@ interface S3Impl {
 
 export class S3 extends Context.Tag('S3')<S3, S3Impl>() {}
 
-/** S3 key for a user's avatar image. */
-export const createAvatarKey = (sub: string) => `avatars/${sub}.jpg`;
-
-/** Path-style S3 URL for a user's avatar (path-style handles bucket names with dots). */
-export const createAvatarUrl = (sub: string, bucket: string, region: string) => `https://s3.${region}.amazonaws.com/${bucket}/avatars/${sub}.jpg`;
-
 export const makeS3 = (config: S3Config) => {
 	const client = new S3Client(config);
 	return S3.of({

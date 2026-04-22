@@ -1,6 +1,6 @@
 {
 	"name": "@polumeyv/utils",
-	"version": "0.1.12",
+	"version": "0.1.13",
 	"description": "Effect-based infrastructure clients for Bun applications",
 	"license": "MIT",
 	"publishConfig": {
@@ -41,6 +41,10 @@
 		"./public/types/db": {
 			"types": "./src/public/types/db/index.ts",
 			"default": "./src/public/types/db/index.ts"
+		},
+		"./public/s3": {
+			"types": "./src/public/s3.ts",
+			"default": "./src/public/s3.ts"
 		}
 	},
 	"peerDependencies": {
