@@ -1,3 +1,4 @@
+export * from './crypto';
 export * from './error';
 export * from './postgres';
 export * from './redis';
