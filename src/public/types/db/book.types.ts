@@ -40,7 +40,7 @@ export const BookPromoCodes = Schema.Struct({
 	code_id: Schema.String,
 	b_id: Schema.String,
 	code: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(50)),
-	desc: Schema.optional(Schema.String),
+	descr: Schema.optional(Schema.String),
 	discount_type: DISCOUNT_TYPE,
 	discount_value: Schema.Number, // cents (or percent if discount_type='percent')
 	min_purchase: Schema.optional(Schema.Number), // cents

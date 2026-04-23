@@ -1,57 +1,57 @@
 {
-	"name": "@polumeyv/utils",
-	"version": "0.1.13",
-	"description": "Effect-based infrastructure clients for Bun applications",
-	"license": "MIT",
-	"publishConfig": {
-		"registry": "https://npm.pkg.github.com"
-	},
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/polumeyv/utils.git"
-	},
-	"keywords": [
-		"effect",
-		"bun",
-		"postgres",
-		"redis",
-		"stripe",
-		"ses"
-	],
-	"scripts": {
-		"release": "npx changelogen --release --push"
-	},
-	"type": "module",
-	"files": [
-		"src"
-	],
-	"exports": {
-		"./server": {
-			"types": "./src/server/index.ts",
-			"default": "./src/server/index.ts"
-		},
-		"./server/error": {
-			"types": "./src/server/error/index.ts",
-			"default": "./src/server/error/index.ts"
-		},
-		"./public/types": {
-			"types": "./src/public/types/index.ts",
-			"default": "./src/public/types/index.ts"
-		},
-		"./public/types/db": {
-			"types": "./src/public/types/db/index.ts",
-			"default": "./src/public/types/db/index.ts"
-		},
-		"./public/s3": {
-			"types": "./src/public/s3.ts",
-			"default": "./src/public/s3.ts"
-		}
-	},
-	"peerDependencies": {
-		"effect": "^3.19.19"
-	},
-	"dependencies": {
-		"@aws-sdk/client-sesv2": "^3.1024.0",
-		"stripe": "^22.0.0"
-	}
+  "name": "@polumeyv/utils",
+  "version": "0.1.15",
+  "description": "Effect-based infrastructure clients for Bun applications",
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/polumeyv/utils.git"
+  },
+  "keywords": [
+    "effect",
+    "bun",
+    "postgres",
+    "redis",
+    "stripe",
+    "ses"
+  ],
+  "scripts": {
+    "release": "npx changelogen --release --push"
+  },
+  "type": "module",
+  "files": [
+    "src"
+  ],
+  "exports": {
+    "./server": {
+      "types": "./src/server/index.ts",
+      "default": "./src/server/index.ts"
+    },
+    "./server/error": {
+      "types": "./src/server/error/index.ts",
+      "default": "./src/server/error/index.ts"
+    },
+    "./public/types": {
+      "types": "./src/public/types/index.ts",
+      "default": "./src/public/types/index.ts"
+    },
+    "./public/types/db": {
+      "types": "./src/public/types/db/index.ts",
+      "default": "./src/public/types/db/index.ts"
+    },
+    "./public/s3": {
+      "types": "./src/public/s3.ts",
+      "default": "./src/public/s3.ts"
+    }
+  },
+  "peerDependencies": {
+    "effect": "^3.19.19"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1024.0",
+    "stripe": "^22.0.0"
+  }
 }

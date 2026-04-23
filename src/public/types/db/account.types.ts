@@ -6,17 +6,10 @@ export type AddressType = typeof ADDRESS_TYPE.Type;
 
 export const TIMEZONE = Schema.Literal('America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'America/Phoenix', 'America/Anchorage', 'Pacific/Honolulu', 'America/Puerto_Rico');
 
-const name = Schema.String.pipe(
-	Schema.minLength(1),
-	Schema.maxLength(50),
-	Schema.pattern(/^[\p{L}\s'\-]+$/u),
-);
+// Per-app user extension tables. Each app keeps its own prefs/state keyed by users(sub).
 
-// Table schemas
-export const AccountProfiles = Schema.Struct({
+export const CrescutsUsers = Schema.Struct({
 	sub: Schema.String,
-	f_name: name,
-	l_name: name,
 	pref_email: Schema.Boolean,
 	pref_sms: Schema.Boolean,
 	privacy_visible: Schema.Boolean,
@@ -25,20 +18,27 @@ export const AccountProfiles = Schema.Struct({
 	privacy_loc: Schema.Boolean,
 	tz: TIMEZONE,
 	military: Schema.Boolean,
-	start_of_week: Schema.Boolean, // true = Monday, false = Sunday (default)
-	// Membership
-	stripe_customer_id: Schema.NullOr(Schema.String),
-	stripe_subscription_id: Schema.NullOr(Schema.String),
+	start_of_week: Schema.Boolean,
 	membership_interval: Schema.NullOr(Schema.Literal('month', 'year')),
 	membership_period_end: Schema.NullOr(Schema.DateFromSelf),
 	membership_will_renew: Schema.Boolean,
-	// Setup
 	is_uga_student: Schema.Boolean,
 	dob: Schema.NullOr(Schema.DateFromSelf),
 	grad_date: Schema.NullOr(Schema.DateFromSelf),
 	updated: Schema.DateFromSelf,
 });
-export type AccountProfilesType = typeof AccountProfiles.Type;
+export type CrescutsUsersType = typeof CrescutsUsers.Type;
+
+export const PolumeyvPros = Schema.Struct({
+	sub: Schema.String,
+	pref_email: Schema.Boolean,
+	pref_sms: Schema.Boolean,
+	tz: TIMEZONE,
+	military: Schema.Boolean,
+	start_of_week: Schema.Boolean,
+	updated: Schema.DateFromSelf,
+});
+export type PolumeyvProsType = typeof PolumeyvPros.Type;
 
 export const AccountAddresses = Schema.Struct({
 	owner_id: Schema.String,
