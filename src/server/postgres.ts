@@ -18,6 +18,27 @@
  * const rows = yield* pg.use((sql) => sql`SELECT * FROM users WHERE id = ${id}`);
  * const user = yield* pg.first((sql) => sql`SELECT * FROM users WHERE id = ${id}`);
  * ```
+ *
+ * ## Returning collections: prefer `jsonb_agg` over `array_agg`
+ *
+ * Bun's SQL driver decodes Postgres `int[]`/`smallint[]` columns (under the
+ * default binary protocol + named prepared statements) as *typed arrays*
+ * (`Int32Array` etc.) for performance. `JSON.stringify` on a typed array
+ * produces `{"0":1,"1":2,…}` instead of `[1,2,…]`, which silently breaks
+ * client parsers expecting a JSON array.
+ *
+ * Return aggregates via `jsonb_agg` / `jsonb_build_object` so values arrive
+ * as real JS `Array` / `object` instances with no client-side conversion:
+ *
+ * ```sql
+ * -- ✗ avoid: client receives Int32Array
+ * SELECT array_agg(day_num ORDER BY day_num) AS days FROM ...;
+ *
+ * -- ✓ prefer: client receives real number[]
+ * SELECT COALESCE(jsonb_agg(day_num ORDER BY day_num), '[]'::jsonb) AS days FROM ...;
+ * ```
+ *
+ * This keeps Postgres → Bun → HTTP → client all speaking JSON end-to-end.
  */
 import { SQL } from 'bun';
 import { Context, Data, Effect } from 'effect';
