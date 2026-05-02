@@ -1,7 +1,7 @@
 /**
  * User schemas and branded types — safe for both server and client.
  *
- * Import via `@polumeyv/auth`.
+ * Import via `@polumeyv/lib/auth`.
  */
 
 /**
