@@ -1,14 +1,14 @@
 {
-  "name": "@polumeyv/utils",
-  "version": "0.1.16",
-  "description": "Effect-based infrastructure clients for Bun applications",
+  "name": "@polumeyv/lib",
+  "version": "0.2.0",
+  "description": "Effect-based infrastructure + auth library for Bun applications",
   "license": "MIT",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/polumeyv/utils.git"
+    "url": "https://github.com/polumeyv/lib.git"
   },
   "keywords": [
     "effect",
@@ -16,14 +16,25 @@
     "postgres",
     "redis",
     "stripe",
-    "ses"
+    "ses",
+    "auth",
+    "jwt",
+    "otp",
+    "passkey",
+    "webauthn",
+    "oauth"
   ],
   "scripts": {
+    "generate-jwt-keys": "bun bin/generate-jwt-keys.mjs",
     "release": "npx changelogen --release --push"
+  },
+  "bin": {
+    "generate-jwt-keys": "./bin/generate-jwt-keys.mjs"
   },
   "type": "module",
   "files": [
-    "src"
+    "src",
+    "bin"
   ],
   "exports": {
     "./server": {
@@ -45,6 +56,22 @@
     "./public/s3": {
       "types": "./src/public/s3.ts",
       "default": "./src/public/s3.ts"
+    },
+    "./auth": {
+      "types": "./src/auth/index.ts",
+      "default": "./src/auth/index.ts"
+    },
+    "./auth/server": {
+      "types": "./src/auth/server.ts",
+      "default": "./src/auth/server.ts"
+    },
+    "./auth/passkey-client": {
+      "types": "./src/auth/passkey/passkey.client.ts",
+      "default": "./src/auth/passkey/passkey.client.ts"
+    },
+    "./auth/oauth2-client": {
+      "types": "./src/auth/oauth2/index.ts",
+      "default": "./src/auth/oauth2/index.ts"
     }
   },
   "peerDependencies": {
@@ -52,6 +79,10 @@
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1024.0",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.0",
+    "jose": "^6.2.2",
+    "openid-client": "^6.8.3",
     "stripe": "^22.0.0"
   }
 }

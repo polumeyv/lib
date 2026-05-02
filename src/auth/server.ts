@@ -1,0 +1,16 @@
+export * from './index';
+export { JwtError, WebAuthnError, OAuthError, OAuthAccountConflictError, OAuth2RequestError } from './errors';
+export { Jwt, JwtConfig } from './jwt';
+export { OtpService, OtpAlerts } from './otp/otp.service';
+export { OtpKey, OtpKeyConfig, OtpKeyFromConfig, makeVerifyTokenCodec } from './otp/otp.crypto';
+export { PasskeyService, PasskeyConfig } from './passkey/passkey.service';
+export { AuthConfig, AuthConfigDefaults, makeAuthConfig } from './config';
+export { OidcProviderRegistry } from './oauth/oidc.service';
+export { OAuthClaims, type OAuthResult } from './oauth/oidc.model';
+export { PasskeyRepository } from './passkey/passkey.repo';
+export { OidcService } from './oauth/oidc.service';
+export { RiscService, RiscConfig, type RiscEvent } from './oauth/risc.service';
+export { BaseUserRepository } from './user/user.repo';
+export { makeOAuthRequestSchema, validateOAuthRequest } from './oauth2/authorize';
+export { OAuth2ClientRegistry, type OAuth2Client } from './oauth2/client-registry';
+export { OAuth2Service, type OAuth2ExtraClaims, type OAuth2SessionData } from './oauth2/oauth2.service';
