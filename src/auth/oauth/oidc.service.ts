@@ -147,12 +147,7 @@ export class OidcService extends Effect.Service<OidcService>()('OidcService', {
 							Effect.andThen(
 								Effect.tryPromise({
 									try: () =>
-										authorizationCodeGrant(
-											config,
-											callbackUrl,
-											{ expectedState: state, expectedNonce: nonce, pkceCodeVerifier: codeVerifier },
-											{ redirect_uri: redirectUri ?? entry.redirectUri },
-										),
+										authorizationCodeGrant(config, callbackUrl, { expectedState: state, expectedNonce: nonce, pkceCodeVerifier: codeVerifier }, { redirect_uri: redirectUri ?? entry.redirectUri }),
 									catch: (e) =>
 										e instanceof AuthorizationResponseError
 											? new OAuthError({ cause: e, message: e.error_description || e.error })
