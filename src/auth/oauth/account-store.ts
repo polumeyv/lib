@@ -119,6 +119,59 @@ export class OAuthAccountStore extends Effect.Service<OAuthAccountStore>()('OAut
 					Option.fromNullable,
 				),
 
+			/** Find by external `(provider, subject)` key. */
+			findByProviderSubject: (provider: string, subject: string) =>
+				Effect.flatMap(
+					pg.first(
+						(sql) => sql<RawRow[]>`SELECT ${sql.unsafe(COLUMNS)} FROM oidc_accounts WHERE provider = ${provider} AND subject = ${subject}`,
+					),
+					(row) => (row ? Effect.map(decodeRow(row), Option.some) : Effect.succeed(Option.none<OAuthAccount>())),
+				),
+
+			/**
+			 * OAuth callback resolution: refresh tokens for an existing link and look up the user, OR fall back to
+			 * email lookup for an existing user that hasn't yet linked this provider.
+			 *
+			 * Returns:
+			 *   Some({ sub, email, terms_acc, linked: true })  — provider+subject row existed; tokens refreshed
+			 *   Some({ sub, email, terms_acc, linked: false }) — no provider link yet, but a user exists with this email
+			 *   None                                            — neither (caller starts signup)
+			 */
+			resolveLogin: (params: {
+				provider: string;
+				subject: string;
+				email: typeof Email.Type;
+				access_token: string;
+				refresh_token?: string | null;
+				scopes?: string | null;
+			}) =>
+				Effect.gen(function* () {
+					const access = yield* encodeMaybe(params.access_token);
+					const refresh = yield* encodeMaybe(params.refresh_token);
+					return yield* Effect.map(
+						pg.first(
+							(sql) => sql<{ sub: typeof UserSub.Type; email: typeof Email.Type; terms_acc: boolean; linked: boolean }[]>`
+								WITH updated AS (
+									UPDATE oidc_accounts
+									SET email = ${params.email},
+										access_token = ${access},
+										refresh_token = COALESCE(${refresh}, oidc_accounts.refresh_token),
+										scopes = COALESCE(${params.scopes ?? null}, oidc_accounts.scopes)
+									WHERE provider = ${params.provider} AND subject = ${params.subject}
+									RETURNING sub
+								)
+								SELECT u.sub, u.email, u.terms_acc IS NOT NULL AS terms_acc, TRUE AS linked
+								FROM updated JOIN users u USING (sub)
+								UNION ALL
+								SELECT u.sub, u.email, u.terms_acc IS NOT NULL AS terms_acc, FALSE AS linked
+								FROM users u
+								WHERE u.email = ${params.email} AND NOT EXISTS (SELECT 1 FROM updated)
+							`,
+						),
+						Option.fromNullable,
+					);
+				}),
+
 			/** All accounts linked to a user (any status). Plaintext tokens. */
 			listForUser: (sub: typeof UserSub.Type) =>
 				Effect.flatMap(

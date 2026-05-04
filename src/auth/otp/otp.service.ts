@@ -5,7 +5,7 @@ import { makeVerifyTokenCodec, OtpKey, OtpKeyFromConfig } from './otp.crypto';
 import { SealedToken, InputCodeSchema } from './otp.model';
 import { AuthConfig, HasOidcKey } from '../config';
 import { BaseUserRepository } from '../user/user.repo';
-import { OidcService } from '../oauth/oidc.service';
+import { OidcAuthFlow } from '../oauth/auth-flow';
 import {
 	CachedUser,
 	CachedUserJson,
@@ -101,7 +101,7 @@ export class OtpService extends Effect.Service<OtpService>()('OtpService', {
 			initAndSend: (email: typeof Email.Type) =>
 				Effect.gen(function* () {
 					const now = Date.now();
-					const oidc = yield* Effect.serviceOption(OidcService);
+					const oidc = yield* Effect.serviceOption(OidcAuthFlow);
 					const [raw, hasOidc] = yield* redis.use((c) =>
 						Promise.all([c.hgetall(OtpHashKey(email)), Option.isSome(oidc) ? c.exists(HasOidcKey(email)).then(Boolean) : Promise.resolve(false)]),
 					);
