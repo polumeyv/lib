@@ -24,7 +24,9 @@ import type { HttpStatusError } from './error';
 const TELNYX_API_URL = 'https://api.telnyx.com/v2/messages';
 
 export class SmsError extends Data.TaggedError('SmsError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
-	get statusCode() { return 500 as const; }
+	get statusCode() {
+		return 500 as const;
+	}
 }
 
 interface SmsImpl {
@@ -34,19 +36,12 @@ interface SmsImpl {
 export class Sms extends Context.Tag('Sms')<Sms, SmsImpl>() {}
 
 /** Check if message is an opt-out keyword */
-export const isOptOutMessage = (text: string): boolean =>
-	['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'].includes(text.trim().toUpperCase());
+export const isOptOutMessage = (text: string): boolean => ['STOP', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'].includes(text.trim().toUpperCase());
 
 /** Check if message is an opt-in keyword */
-export const isOptInMessage = (text: string): boolean =>
-	['START', 'SUBSCRIBE', 'YES', 'UNSTOP'].includes(text.trim().toUpperCase());
+export const isOptInMessage = (text: string): boolean => ['START', 'SUBSCRIBE', 'YES', 'UNSTOP'].includes(text.trim().toUpperCase());
 
-export const makeSms = (config: {
-	apiKey: string;
-	phoneNumber: string;
-	messagingProfileId: string;
-	enabled: boolean;
-}) =>
+export const makeSms = (config: { apiKey: string; phoneNumber: string; messagingProfileId: string; enabled: boolean }) =>
 	Sms.of({
 		send: ({ to, message }) =>
 			config.enabled
@@ -76,10 +71,6 @@ export const makeSms = (config: {
 							return { success: true as const, messageId: data.data.id };
 						},
 						catch: (e) => new SmsError({ cause: e, message: `Failed to send SMS to ${to}` }),
-					}).pipe(
-						Effect.tapError((e) => Effect.logError(`[SMS] ${e.cause}`)),
-					)
-				: Effect.logInfo(`[DEV] Skipped SMS to ${to}: ${message.slice(0, 50)}`).pipe(
-						Effect.map(() => ({ success: false as const })),
-					),
+					}).pipe(Effect.tapError((e) => Effect.logError(`[SMS] ${e.cause}`)))
+				: Effect.logInfo(`[DEV] Skipped SMS to ${to}: ${message.slice(0, 50)}`).pipe(Effect.map(() => ({ success: false as const }))),
 	});

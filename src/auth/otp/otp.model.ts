@@ -12,18 +12,8 @@ export const makeOtpSchema = (codeLen: number) =>
 	Schema.Struct({
 		email: Email,
 		token: SealedToken,
-		code: Schema.Union(
-			Schema.Literal('resend_'),
-			Schema.String.pipe(Schema.pattern(new RegExp(`^\\d{${codeLen}}$`), { message: () => `Code must be ${codeLen} digits` })),
-		),
+		code: Schema.Union(Schema.Literal('resend_'), Schema.String.pipe(Schema.pattern(new RegExp(`^\\d{${codeLen}}$`), { message: () => `Code must be ${codeLen} digits` }))),
 	});
-
-/**
- * Schema for submitting an OTP code for verification.
- * Extends `InputEmailSchema` with the user-entered code,
- * validated as a fixed-length numeric string.
- */
-export const InputCodeSchema = makeOtpSchema(AuthConfigDefaults.otpCodeLen);
 
 /** Tagged return for successful OTP session init or resend — sealed token + cooldown in seconds. client must check for null,
  * if so, set a timer for the cooldown period, if number exists, user is requesting too early  */
@@ -31,7 +21,6 @@ export class OtpSession extends Data.TaggedClass('OtpSession')<{ token: typeof S
 
 /** Tagged return for a wrong OTP code — user can retry. `failed` = consecutive failures (for "X attempts remaining"). */
 export class InvalidCode extends Data.TaggedClass('InvalidCode')<{ failed: number }> {
-	/** Human-readable message with remaining attempts (shown when <= 2). */
 	message(lockDurations: readonly number[] = AuthConfigDefaults.lockDurationsMs): string {
 		const attemptsLeft = Math.max(0, lockDurations.findIndex((d, i) => i >= this.failed && d > 0) - this.failed);
 		return `Invalid or expired code.${attemptsLeft <= 2 ? ` ${attemptsLeft} attempt${attemptsLeft === 1 ? '' : 's'} remaining.` : ''}`;
@@ -44,10 +33,8 @@ export const checkIsLocked = (lockDurations: readonly number[] = AuthConfigDefau
 
 /** Tagged return for a locked account (timed or permanent). `failed_at` = lock timestamp; `null` = permanent lock. */
 export class UserLocked extends Data.TaggedClass('UserLocked')<{ failed: number; failed_at: number | null }> {
-	/** Whether the lock is currently active. */
 	isLocked = (lockDurations: readonly number[] = AuthConfigDefaults.lockDurationsMs) => checkIsLocked(lockDurations, this.failed, this.failed_at);
 
-	/** Human-readable lock message — timed duration or permanent "contact support". */
 	message(lockDurations: readonly number[] = AuthConfigDefaults.lockDurationsMs): string {
 		const d = lockDurations[this.failed];
 		if (d === undefined || d === Infinity) return 'Your account has been permanently locked. Please contact support.';

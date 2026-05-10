@@ -22,9 +22,12 @@
 import { RedisClient, type RedisOptions } from 'bun';
 import { Context, Data, Effect } from 'effect';
 import type { HttpStatusError } from './error';
+import { makeUse } from './use';
 
 export class RedisError extends Data.TaggedError('RedisError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
-	get statusCode() { return 503 as const; }
+	get statusCode() {
+		return 503 as const;
+	}
 }
 
 interface RedisImpl {
@@ -42,21 +45,5 @@ export const makeRedis = (url?: string, options?: RedisOptions) =>
 			}),
 			(client) => Effect.sync(() => client.close()),
 		),
-		(client) =>
-			Redis.of({
-				use: (fn) =>
-					Effect.flatMap(
-						Effect.try({
-							try: () => fn(client),
-							catch: (e) => new RedisError({ cause: e, message: 'Synchronous Error in Redis.use' }),
-						}),
-						(result) =>
-							result instanceof Promise
-								? Effect.tryPromise({
-										try: () => result,
-										catch: (e) => new RedisError({ cause: e, message: 'Asynchronous Error in Redis.use' }),
-									})
-								: Effect.succeed(result),
-					),
-			}),
+		(client) => Redis.of({ use: makeUse(client, RedisError, 'Redis') }),
 	);

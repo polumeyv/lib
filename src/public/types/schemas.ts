@@ -8,6 +8,11 @@ export const getHostname = (url: string) => new URL(url.includes('://') ? url : 
 
 export const Email = Schema.String.pipe(Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, { message: () => 'Please enter a valid email address' }));
 
+export const Phone = Schema.String.pipe(
+	Schema.minLength(7, { message: () => 'Please enter a valid phone number' }),
+	Schema.maxLength(30, { message: () => 'Please enter a valid phone number' }),
+);
+
 export const Name = (field: string) =>
 	Schema.String.pipe(
 		Schema.minLength(1, { message: () => `${field} is required` }),

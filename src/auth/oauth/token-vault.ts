@@ -24,7 +24,7 @@ export class OAuthTokenVault extends Effect.Service<OAuthTokenVault>()('OAuthTok
 		const getValidAccessToken = (sub: typeof UserSub.Type, provider: string) =>
 			Effect.gen(function* () {
 				const account = yield* Effect.flatMap(
-					store.findActive(sub, provider),
+					store.getActive(sub, provider),
 					Option.match({
 						onNone: () => Effect.fail(new OAuthError({ message: `No active ${provider} account for ${sub}` })),
 						onSome: Effect.succeed,

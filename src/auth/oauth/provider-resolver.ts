@@ -28,10 +28,7 @@ export class OAuthProviderResolver extends Effect.Service<OAuthProviderResolver>
 
 		const resolve = (provider: string) =>
 			Effect.flatMap(
-				Effect.mapError(
-					Effect.fromNullable(registry.get(provider)),
-					() => new OAuthError({ message: `Unknown OAuth provider: ${provider}` }),
-				),
+				Effect.mapError(Effect.fromNullable(registry.get(provider)), () => new OAuthError({ message: `Unknown OAuth provider: ${provider}` })),
 				(entry) => {
 					const cached = configs.get(provider);
 					if (cached) return Effect.succeed({ config: cached, entry });

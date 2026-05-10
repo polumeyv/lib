@@ -18,7 +18,7 @@ import { OAuthProviderResolver } from './provider-resolver';
 import { OAuthAccountStore } from './account-store';
 
 const OAuthSessionKey = (state: string) => `oauth:${state}`;
-const SignupKey = (uuid: string) => `oidc:${uuid}`;
+const SignupKey = (uuid: string) => `oauth_signup:${uuid}`;
 const LinkingKey = (email: string) => `link_oidc:${email}`;
 
 /**
@@ -37,71 +37,66 @@ export class OidcAuthFlow extends Effect.Service<OidcAuthFlow>()('OidcAuthFlow',
 		const resolver = yield* OAuthProviderResolver;
 		const store = yield* OAuthAccountStore;
 
-		const buildAuthUrl = (provider: string, opts?: { scopes?: string; redirectUri?: string; extras?: Record<string, string> }) =>
-			Effect.gen(function* () {
-				const { config, entry } = yield* resolver.resolve(provider);
+		const buildAuthUrl = (provider: string, opts?: { scopes?: string; extras?: Record<string, string>; redirectUri?: string }) =>
+			Effect.flatMap(resolver.resolve(provider), ({ config, entry }) => {
 				const codeVerifier = randomPKCECodeVerifier();
-				const code_challenge = yield* Effect.tryPromise({
-					try: () => calculatePKCECodeChallenge(codeVerifier),
-					catch: (e) => new OAuthError({ cause: e, message: 'PKCE challenge calculation failed' }),
-				});
 				const state = randomState();
 				const nonce = randomNonce();
 				const redirectUri = opts?.redirectUri ?? entry.redirectUri;
-				yield* session.push(OAuthSessionKey(state), oauthSessionTtl, { nonce, codeVerifier, provider, redirectUri });
-				return buildAuthorizationUrl(config, {
-					redirect_uri: redirectUri,
-					scope: opts?.scopes ?? oauthScopes,
-					state,
-					nonce,
-					code_challenge,
-					code_challenge_method: 'S256',
-					...(opts?.extras ?? {}),
-				});
+				return Effect.zipRight(
+					session.push(OAuthSessionKey(state), oauthSessionTtl, { nonce, codeVerifier, provider, redirectUri }),
+					Effect.map(
+						Effect.promise(() => calculatePKCECodeChallenge(codeVerifier)),
+						(code_challenge) =>
+							buildAuthorizationUrl(config, {
+								redirect_uri: redirectUri,
+								scope: opts?.scopes ?? oauthScopes,
+								state,
+								nonce,
+								code_challenge,
+								code_challenge_method: 'S256',
+								...(opts?.extras ?? {}),
+							}),
+					),
+				);
 			});
 
-		const exchangeCode = (callbackUrl: URL) =>
-			Effect.gen(function* () {
-				const state = callbackUrl.searchParams.get('state');
-				if (!state) return yield* Effect.fail(new OAuthError({ message: 'Missing state parameter in callback URL' }));
-				const { nonce, codeVerifier, provider, redirectUri } = yield* session.pop<{
-					nonce: string;
-					codeVerifier: string;
-					provider: string;
-					redirectUri?: string;
-				}>(OAuthSessionKey(state));
-				const { config, entry } = yield* resolver.resolve(provider);
-				const tokens = yield* Effect.tryPromise({
-					try: () =>
-						authorizationCodeGrant(
-							config,
-							callbackUrl,
-							{ expectedState: state, expectedNonce: nonce, pkceCodeVerifier: codeVerifier },
-							{ redirect_uri: redirectUri ?? entry.redirectUri },
+		const exchangeCode = (callbackUrl: URL) => {
+			const state = callbackUrl.searchParams.get('state');
+			if (!state) return Effect.fail(new OAuthError({ message: 'Missing state parameter in callback URL' }));
+			return Effect.flatMap(
+				session.pop<{ nonce: string; codeVerifier: string; provider: string; redirectUri?: string }>(OAuthSessionKey(state)),
+				({ nonce, codeVerifier, provider, redirectUri }) =>
+					Effect.flatMap(resolver.resolve(provider), ({ config, entry }) =>
+						Effect.flatMap(
+							Effect.tryPromise({
+								try: () => authorizationCodeGrant(config, callbackUrl, { expectedState: state, expectedNonce: nonce, pkceCodeVerifier: codeVerifier }, { redirect_uri: redirectUri ?? entry.redirectUri }),
+								catch: (e) =>
+									e instanceof AuthorizationResponseError || e instanceof ResponseBodyError
+										? new OAuthError({ cause: e, message: e.error_description || e.error })
+										: new OAuthError({ cause: e, message: 'Token exchange failed' }),
+							}),
+							(tokens) => {
+								const claimsRaw = tokens.claims() as Record<string, unknown> | undefined;
+								if (!claimsRaw) return Effect.fail(new OAuthError({ message: 'No ID token claims returned' }));
+								if (claimsRaw.email_verified === false) return Effect.fail(new OAuthError({ message: 'Email not verified by provider' }));
+								return Effect.map(
+									Effect.mapError(Schema.decodeUnknown(OAuthClaims)(claimsRaw), (e) => new OAuthError({ cause: e, message: 'Invalid ID token claims' })),
+									(claims) =>
+										({
+											claims,
+											provider,
+											access_token: tokens.access_token,
+											scopes: tokens.scope ?? oauthScopes,
+											refresh_token: tokens.refresh_token,
+											expires_at: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined,
+										}) satisfies typeof OAuthResult.Type,
+								);
+							},
 						),
-					catch: (e) =>
-						e instanceof AuthorizationResponseError
-							? new OAuthError({ cause: e, message: e.error_description || e.error })
-							: e instanceof ResponseBodyError
-								? new OAuthError({ cause: e, message: e.error_description || e.error })
-								: new OAuthError({ cause: e, message: 'Token exchange failed' }),
-				});
-				const claimsRaw = tokens.claims() as Record<string, unknown> | undefined;
-				if (!claimsRaw) return yield* Effect.fail(new OAuthError({ message: 'No ID token claims returned' }));
-				if (claimsRaw.email_verified === false) return yield* Effect.fail(new OAuthError({ message: 'Email not verified by provider' }));
-				const claims = yield* Effect.mapError(
-					Schema.decodeUnknown(OAuthClaims)(claimsRaw),
-					(e) => new OAuthError({ cause: e, message: 'Invalid ID token claims' }),
-				);
-				return {
-					claims,
-					provider,
-					access_token: tokens.access_token,
-					scopes: tokens.scope ?? oauthScopes,
-					refresh_token: tokens.refresh_token,
-					expires_at: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined,
-				} satisfies typeof OAuthResult.Type;
-			});
+					),
+			);
+		};
 
 		/**
 		 * Persist a signup payload behind a fresh UUIDv7 token. Caller sets the token in a cookie
@@ -123,8 +118,7 @@ export class OidcAuthFlow extends Effect.Service<OidcAuthFlow>()('OidcAuthFlow',
 					}),
 			);
 
-		const createLinkingSession = (result: typeof OAuthResult.Type) =>
-			session.push(LinkingKey(result.claims.email), oidcLinkSessionTtl, result);
+		const createLinkingSession = (result: typeof OAuthResult.Type) => session.push(LinkingKey(result.claims.email), oidcLinkSessionTtl, result);
 
 		/**
 		 * Pop a parked linking session for `user.email` and persist the OAuth account against `user.sub`.

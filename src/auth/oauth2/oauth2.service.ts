@@ -5,12 +5,9 @@ import { AuthConfig } from '../config';
 import { OAuth2RequestError } from '../errors';
 import type { AuthPayload, UserSub } from '../model';
 
-const AUTH_CODE_TTL = 300; // 5 minutes
 const AUTH_CODE_KEY = (code: string) => `authcode:${code}`;
 const OAUTH2_SESS_KEY = (sid: string) => `oauth2_sess:${sid}`;
-const OAUTH2_SESS_TTL = 60 * 60 * 24 * 90; // 90 days
 const OAUTH_REDIRECT_KEY = (authSid: string) => `red_url:${Bun.SHA256.hash(authSid, 'hex')}`;
-const OAUTH_REDIRECT_TTL = 3600; // 1 hour
 
 export interface OAuth2ExtraClaims {
 	/** Claims merged into the access_token JWT payload. */
@@ -39,44 +36,37 @@ export class OAuth2Service extends Effect.Service<OAuth2Service>()('OAuth2Servic
 	effect: Effect.gen(function* () {
 		const session = yield* SessionService;
 		const jwt = yield* Jwt;
-		const { oauth2AccessTtl } = yield* AuthConfig;
+		const { oauth2AccessTtl, oauth2RefreshTtl, oauth2AuthCodeTtl, deferredAuthorizeTtl } = yield* AuthConfig;
 
-		const buildTokenResponse = (
-			sub: typeof UserSub.Type,
-			email: string,
-			clientId: string,
-			tokenClaims: Record<string, unknown>,
-			extra?: Record<string, unknown>,
-		) =>
-			Effect.andThen(Effect.sync(() => Bun.randomUUIDv7()), (sid) =>
-				Effect.andThen(session.push(OAUTH2_SESS_KEY(sid), OAUTH2_SESS_TTL, { sub, aud: clientId, email } satisfies OAuth2SessionData), () =>
-					Effect.map(jwt.signOAuth2Tokens({ sub, email } as AuthPayload, sid, tokenClaims), (tokens) => ({
-						...tokens,
-						token_type: 'Bearer' as const,
-						expires_in: oauth2AccessTtl,
-						...extra,
-					})),
-				),
+		const buildTokenResponse = (sub: typeof UserSub.Type, email: string, clientId: string, tokenClaims: Record<string, unknown>, extra?: Record<string, unknown>) =>
+			Effect.andThen(
+				Effect.sync(() => Bun.randomUUIDv7()),
+				(sid) =>
+					Effect.andThen(session.push(OAUTH2_SESS_KEY(sid), oauth2RefreshTtl, { sub, aud: clientId, email } satisfies OAuth2SessionData), () =>
+						Effect.map(jwt.signOAuth2Tokens({ sub, email } as AuthPayload, sid, tokenClaims), (tokens) => ({
+							...tokens,
+							token_type: 'Bearer' as const,
+							expires_in: oauth2AccessTtl,
+							...extra,
+						})),
+					),
 			);
 
-		const createAuthCode = (
-			user: { sub: string; email: string },
-			request: { client_id: string; redirect_uri: string; code_challenge: string; scope: string; state?: string; nonce?: string },
-		) =>
-			Effect.flatMap(Effect.sync(() => Bun.randomUUIDv7()), (code) =>
-				Effect.as(
-					session.push(AUTH_CODE_KEY(code), AUTH_CODE_TTL, {
-						...user,
-						client_id: request.client_id,
-						redirect_uri: request.redirect_uri,
-						code_challenge: request.code_challenge,
-						scope: request.scope,
-						nonce: request.nonce,
-					}),
-					((url) => (url.searchParams.set('code', code), request.state && url.searchParams.set('state', request.state), url.toString()))(
-						new URL(request.redirect_uri),
+		const createAuthCode = (user: { sub: string; email: string }, request: { client_id: string; redirect_uri: string; code_challenge: string; scope: string; state?: string; nonce?: string }) =>
+			Effect.flatMap(
+				Effect.sync(() => Bun.randomUUIDv7()),
+				(code) =>
+					Effect.as(
+						session.push(AUTH_CODE_KEY(code), oauth2AuthCodeTtl, {
+							...user,
+							client_id: request.client_id,
+							redirect_uri: request.redirect_uri,
+							code_challenge: request.code_challenge,
+							scope: request.scope,
+							nonce: request.nonce,
+						}),
+						((url) => (url.searchParams.set('code', code), request.state && url.searchParams.set('state', request.state), url.toString()))(new URL(request.redirect_uri)),
 					),
-				),
 			);
 
 		return {
@@ -92,10 +82,7 @@ export class OAuth2Service extends Effect.Service<OAuth2Service>()('OAuth2Servic
 					Effect.andThen(
 						Effect.filterOrFail(
 							Effect.succeed(storedCode),
-							(c) =>
-								c.client_id === clientId &&
-								c.redirect_uri === req.redirect_uri &&
-								new Bun.CryptoHasher('sha256').update(req.code_verifier).digest('base64url') === c.code_challenge,
+							(c) => c.client_id === clientId && c.redirect_uri === req.redirect_uri && new Bun.CryptoHasher('sha256').update(req.code_verifier).digest('base64url') === c.code_challenge,
 							() => new OAuth2RequestError({ message: 'Code validation failed' }),
 						),
 						(code) =>
@@ -116,9 +103,7 @@ export class OAuth2Service extends Effect.Service<OAuth2Service>()('OAuth2Servic
 						() => new OAuth2RequestError({ message: 'Audience mismatch' }),
 					),
 					Effect.andThen((sess) =>
-						Effect.andThen(getExtraClaims(sess.sub), ({ tokenClaims, responseExtra }) =>
-							Effect.map(buildTokenResponse(sess.sub, sess.email, clientId, tokenClaims, responseExtra), (res) => res),
-						),
+						Effect.andThen(getExtraClaims(sess.sub), ({ tokenClaims, responseExtra }) => Effect.map(buildTokenResponse(sess.sub, sess.email, clientId, tokenClaims, responseExtra), (res) => res)),
 					),
 				),
 
@@ -127,7 +112,10 @@ export class OAuth2Service extends Effect.Service<OAuth2Service>()('OAuth2Servic
 
 			/** Store OAuth request params in the session and return the authSid. */
 			storeOAuthRedirect: (params: string) =>
-				Effect.flatMap(Effect.sync(() => Bun.randomUUIDv7()), (authSid) => Effect.as(session.push(OAUTH_REDIRECT_KEY(authSid), OAUTH_REDIRECT_TTL, params), authSid)),
+				Effect.flatMap(
+					Effect.sync(() => Bun.randomUUIDv7()),
+					(authSid) => Effect.as(session.push(OAUTH_REDIRECT_KEY(authSid), deferredAuthorizeTtl, params), authSid),
+				),
 
 			/** Look up a pending OAuth redirect, create the auth code, and delete the redirect key. Returns Option<redirectUrl>. */
 			consumeOAuthRedirect: (authSid: string | undefined, user: { sub: string; email: string }) => {

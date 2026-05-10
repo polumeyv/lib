@@ -52,6 +52,4 @@ const ERROR_MESSAGES: Record<WebAuthnErrorCode, string> = {
  * @returns A toast-ready string, or `null` if the error should be silently ignored.
  */
 export const passkeyErrorMessage = (e: unknown): string | null =>
-	isPasskeyCancelled(e)
-		? null
-		: ((webAuthnCode(e) && ERROR_MESSAGES[webAuthnCode(e)!]) ?? (e instanceof Error ? e.message : 'An unexpected passkey error occurred.'));
+	isPasskeyCancelled(e) ? null : ((webAuthnCode(e) && ERROR_MESSAGES[webAuthnCode(e)!]) ?? (e instanceof Error ? e.message : 'An unexpected passkey error occurred.'));

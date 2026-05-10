@@ -9,8 +9,7 @@ export class SessionExpiredError extends Data.TaggedError('SessionExpiredError')
 	}
 }
 
-const parseOrExpired = <T>(v: string | null) =>
-	v ? Effect.succeed(JSON.parse(v) as T) : Effect.fail(new SessionExpiredError({ message: 'Your session has expired, please try again' }));
+const parseOrExpired = <T>(v: string | null) => (v ? Effect.succeed(JSON.parse(v) as T) : Effect.fail(new SessionExpiredError({ message: 'Your session has expired, please try again' })));
 
 export class SessionService extends Effect.Service<SessionService>()('SessionService', {
 	effect: Effect.gen(function* () {

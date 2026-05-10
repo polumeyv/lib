@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.0
+
+### Changed
+
+- **Internal:** `OtpPolicy` module collapsed into `OtpService`. The pure decision functions (`decideInit`, `decideLink`, `decideHandle`) had no callers outside `OtpService` and pre-conditions the service had to enforce — the seam was hypothetical. `sendDecision`, `parseHash`, `computeCooldown`, `isLocked` remain at module scope (multi-use). No public API change.
+- **Tests:** Added `otp.service.test.ts` covering `initAndSend`, `initLinkAndSend`, and `handleOtp` flows against fake Redis / `BaseUserRepository` adapters.
 
 ## v0.3.0
 
@@ -34,4 +40,3 @@
 ### ❤️ Contributors
 
 - Polumeyv ([@Nic-Polumeyv](https://github.com/Nic-Polumeyv))
-

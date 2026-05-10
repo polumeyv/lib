@@ -43,9 +43,12 @@
 import { SQL } from 'bun';
 import { Context, Data, Effect } from 'effect';
 import type { HttpStatusError } from './error';
+import { makeUse } from './use';
 
 export class PostgresError extends Data.TaggedError('PostgresError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
-	get statusCode() { return 500 as const; }
+	get statusCode() {
+		return 500 as const;
+	}
 }
 
 interface PostgresImpl {
@@ -66,20 +69,7 @@ export const makePostgres = (url: string) =>
 		),
 		(sql) => {
 			const impl: PostgresImpl = {
-				use: (fn) =>
-					Effect.flatMap(
-						Effect.try({
-							try: () => fn(sql),
-							catch: (e) => new PostgresError({ cause: e, message: 'Asynchronous Error in Postgres.use' }),
-						}),
-						(result) =>
-							result instanceof Promise
-								? Effect.tryPromise({
-										try: () => result,
-										catch: (e) => new PostgresError({ cause: e, message: 'Asynchronous Error in Postgres.use' }),
-									})
-								: Effect.succeed(result),
-					),
+				use: makeUse(sql, PostgresError, 'Postgres'),
 				first: (fn) => Effect.map(impl.use(fn), (rows) => rows[0]),
 			};
 			return Postgres.of(impl);

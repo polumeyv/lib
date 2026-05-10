@@ -1,6 +1,6 @@
 {
   "name": "@polumeyv/lib",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "Effect-based infrastructure + auth library for Bun applications",
   "license": "MIT",
   "publishConfig": {
@@ -16,7 +16,6 @@
     "postgres",
     "redis",
     "stripe",
-    "ses",
     "auth",
     "jwt",
     "otp",
@@ -49,6 +48,10 @@
       "types": "./src/public/types/index.ts",
       "default": "./src/public/types/index.ts"
     },
+    "./booking": {
+      "types": "./src/booking/index.ts",
+      "default": "./src/booking/index.ts"
+    },
     "./public/types/db": {
       "types": "./src/public/types/db/index.ts",
       "default": "./src/public/types/db/index.ts"
@@ -78,7 +81,6 @@
     "effect": "^3.19.19"
   },
   "dependencies": {
-    "@aws-sdk/client-sesv2": "^3.1024.0",
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.0",
     "jose": "^6.2.2",

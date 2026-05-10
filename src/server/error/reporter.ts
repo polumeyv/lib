@@ -12,16 +12,7 @@ export function reportError(opts: { repo: string; token: string; error: unknown;
 	reported.add(title);
 
 	const api = `https://api.github.com/repos/${opts.repo}`;
-	const body = [
-		`**ID:** \`${id}\``,
-		`**Status:** \`${opts.status}\``,
-		`**Route:** \`${opts.route ?? 'unknown'}\``,
-		`**URL:** \`${opts.url}\``,
-		'',
-		'```',
-		err.stack ?? err.message,
-		'```',
-	].join('\n');
+	const body = [`**ID:** \`${id}\``, `**Status:** \`${opts.status}\``, `**Route:** \`${opts.route ?? 'unknown'}\``, `**URL:** \`${opts.url}\``, '', '```', err.stack ?? err.message, '```'].join('\n');
 
 	const headers = {
 		Authorization: `token ${opts.token}`,
@@ -34,17 +25,8 @@ export function reportError(opts: { repo: string; token: string; error: unknown;
 		.then((issues: unknown) => {
 			if (!Array.isArray(issues)) return;
 			const existing = (issues as Array<{ title: string; number: number }>).find((i) => i.title === title);
-			return existing
-				? fetch(`${api}/issues/${existing.number}/comments`, {
-						method: 'POST',
-						headers,
-						body: JSON.stringify({ body: `**Re-occurrence**\n\n${body}` }),
-					})
-				: fetch(`${api}/issues`, {
-						method: 'POST',
-						headers,
-						body: JSON.stringify({ title, body, labels: ['auto-error'] }),
-					});
+			const [url, payload] = existing ? [`${api}/issues/${existing.number}/comments`, { body: `**Re-occurrence**\n\n${body}` }] : [`${api}/issues`, { title, body, labels: ['auto-error'] }];
+			return fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
 		})
 		.catch((e) => console.error('[error-reporter]', e));
 }

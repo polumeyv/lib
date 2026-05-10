@@ -1,8 +1,12 @@
-import { Effect, ParseResult, Schema } from 'effect';
-import { OAuth2ClientRegistry } from './client-registry';
-import { OAuth2RequestError } from '../errors';
+import { Schema } from 'effect';
 
-export const makeOAuthRequestSchema = (registry: ReadonlyMap<string, { readonly redirectUris: readonly string[]; readonly scope: string }>) =>
+export interface OAuth2Client {
+	readonly clientSecret: string;
+	readonly redirectUris: readonly string[];
+	readonly scope: string;
+}
+
+export const makeOAuthRequestSchema = (registry: ReadonlyMap<string, OAuth2Client>) =>
 	Schema.Struct({
 		client_id: Schema.String.pipe(
 			Schema.filter((id) => {
@@ -22,10 +26,4 @@ export const makeOAuthRequestSchema = (registry: ReadonlyMap<string, { readonly 
 			if (!client.redirectUris.includes(req.redirect_uri)) return 'Invalid redirect_uri';
 			if (client.scope !== req.scope) return 'Invalid scope';
 		}),
-	);
-
-/** Parse + validate an OAuth2 authorization request against the registered client registry. */
-export const validateOAuthRequest = (searchParams: URLSearchParams) =>
-	Effect.flatMap(OAuth2ClientRegistry, (registry) =>
-		Effect.mapError(Schema.decodeUnknown(makeOAuthRequestSchema(registry))(Object.fromEntries(searchParams)), (e) => new OAuth2RequestError({ message: ParseResult.TreeFormatter.formatErrorSync(e) })),
 	);

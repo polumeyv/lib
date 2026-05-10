@@ -1,4 +1,5 @@
 import { Schema } from 'effect';
+import { BOOKING_STATUS } from './pro.types';
 
 // Enums
 export const DISCOUNT_TYPE = Schema.Literal('percent', 'fixed');
@@ -78,12 +79,15 @@ export type BookGuestsType = typeof BookGuests.Type;
 
 export const UserBookingRow = Schema.Struct({
 	id: Schema.String,
-	start_time: Schema.String,
+	b_id: Schema.String,
+	start_ts: Schema.DateFromSelf,
+	end_ts: Schema.DateFromSelf,
 	dur: Schema.NullOr(Schema.Number),
-	status: Schema.String,
+	status: BOOKING_STATUS,
 	amount: Schema.NullOr(Schema.Number),
-	service_name: Schema.String,
-	business_name: Schema.String,
+	notes: Schema.NullOr(Schema.String),
+	service_name: Schema.NullOr(Schema.String),
+	business_name: Schema.NullOr(Schema.String),
 	business_address: Schema.NullOr(Schema.String),
 });
 export type UserBookingRow = typeof UserBookingRow.Type;

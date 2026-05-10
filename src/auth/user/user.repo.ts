@@ -22,31 +22,24 @@ export class BaseUserRepository extends Effect.Service<BaseUserRepository>()('Ba
 									pg.first<[typeof UserName.Type]>((sql) => sql`SELECT f_name, l_name FROM users WHERE sub = ${sub}`),
 									Effect.fromNullable,
 								),
-								(data) =>
-									Effect.andThen(Schema.encode(NameJson)(data), (encoded) => redis.use((c) => c.setex(`name:${sub}`, NAME_CACHE_TTL, encoded))),
+								(data) => Effect.andThen(Schema.encode(NameJson)(data), (encoded) => redis.use((c) => c.setex(`name:${sub}`, NAME_CACHE_TTL, encoded))),
 							),
 			);
 
 		const updateName = (sub: typeof UserSub.Type, data: typeof UserName.Type) =>
 			Effect.andThen(Schema.encode(NameJson)(data), (json) =>
-				Effect.all([
-					pg.use((sql) => sql`UPDATE users SET ${sql(data, 'f_name', 'l_name')} WHERE sub = ${sub}`),
-					redis.use((c) => c.setex(`name:${sub}`, NAME_CACHE_TTL, json)),
-				]),
+				Effect.all([pg.use((sql) => sql`UPDATE users SET ${sql(data, 'f_name', 'l_name')} WHERE sub = ${sub}`), redis.use((c) => c.setex(`name:${sub}`, NAME_CACHE_TTL, json))]),
 			);
 
 		return {
 			getName,
 			updateName,
-			findSubByEmail: (email: typeof Email.Type) =>
+			getSubByEmail: (email: typeof Email.Type) =>
 				Effect.map(
-					pg.first(
-						(sql) =>
-							sql<{ sub: typeof UserSub.Type; locked: boolean; terms_acc: Date | null }[]>`SELECT sub, locked, terms_acc FROM users WHERE email = ${email}`,
-					),
+					pg.first((sql) => sql<{ sub: typeof UserSub.Type; locked: boolean; terms_acc: Date | null }[]>`SELECT sub, locked, terms_acc FROM users WHERE email = ${email}`),
 					Option.fromNullable,
 				),
-			findSubByEmailWithOidc: (email: typeof Email.Type) =>
+			getSubByEmailWithOidc: (email: typeof Email.Type) =>
 				Effect.map(
 					pg.first(
 						(sql) => sql<{ sub: typeof UserSub.Type; locked: boolean; terms_acc: Date | null; has_oidc: boolean }[]>`

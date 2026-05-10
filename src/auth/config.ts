@@ -33,6 +33,12 @@ export interface AuthConfigShape {
 	readonly oidcLinkSessionTtl: number;
 	/** TTL in seconds for WebAuthn challenge sessions in Redis (default: 300 — 5 min). */
 	readonly webauthnSessionTtl: number;
+	/** TTL in seconds for OTP signup tokens in Redis — opaque cookie token bridging code verification → name entry (default: 600 — 10 min). */
+	readonly otpSignupTokenTtl: number;
+	/** TTL in seconds for OAuth2 authorization codes in Redis (default: 300 — 5 min). */
+	readonly oauth2AuthCodeTtl: number;
+	/** TTL in seconds for parked Deferred OAuth2 authorize entries in Redis (default: 3 600 — 1 h). */
+	readonly deferredAuthorizeTtl: number;
 	/** Optional maximum number of OTP sends per email address, to prevent abuse (default: 8). */
 	readonly maxEmailSends: number;
 	/** Max-age in seconds for the access_token cookie (default: 900 — 15 min). */
@@ -62,6 +68,9 @@ export const AuthConfigDefaults: AuthConfigShape = {
 	oauthSessionTtl: 300,
 	oidcLinkSessionTtl: 600,
 	webauthnSessionTtl: 300,
+	otpSignupTokenTtl: 600,
+	oauth2AuthCodeTtl: 300,
+	deferredAuthorizeTtl: 3_600,
 	maxEmailSends: 8,
 	accessCookieMaxAge: 900,
 	refreshCookieMaxAge: 7_776_000,
