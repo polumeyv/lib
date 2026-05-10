@@ -59,7 +59,8 @@ export function makeStripe(config: { secretKey: string; apiVersion?: string }): 
 	stripeCall: ReturnType<typeof makeStripeCall>;
 };
 export function makeStripe(config: { secretKey: string; apiVersion?: string; webhookSecret?: string }) {
-	const stripe = new StripeSDK(config.secretKey, config.apiVersion ? { apiVersion: config.apiVersion as StripeSDK.LatestApiVersion } : undefined);
+	// apiVersion typing is a literal union per Stripe SDK release; runtime accepts any string the API understands.
+	const stripe = new StripeSDK(config.secretKey, config.apiVersion ? { apiVersion: config.apiVersion as typeof StripeSDK.API_VERSION } : undefined);
 	return {
 		stripe,
 		stripeCall: makeStripeCall(stripe),
