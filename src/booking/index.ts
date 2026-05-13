@@ -78,8 +78,10 @@ export const BookingSettings = Schema.Struct({
 	deposit_amount: Schema.Number,
 	deposit_is_fixed: Schema.Boolean,
 	cancellation_deadline_hours: Schema.Number,
-	max_advance_days: Schema.Number,
-	min_advance_hours: Schema.Number,
+	max_advance_value: Schema.Number,
+	max_advance_in_hours: Schema.Boolean,
+	min_advance_value: Schema.Number,
+	min_advance_in_hours: Schema.Boolean,
 	buf: Schema.Number,
 	reminder_hours: Schema.Number,
 	cancellation_policy: Schema.optional(Schema.String),
@@ -88,6 +90,18 @@ export type BookingSettings = typeof BookingSettings.Type;
 
 export const UpdateBookingSettingsS = Schema.partial(BookingSettings);
 export type UpdateBookingSettings = typeof UpdateBookingSettingsS.Type;
+
+export const UpdateOnlineBookingS = Schema.partial(
+	BookingSettings.pipe(
+		Schema.pick('allow_online', 'max_advance_value', 'max_advance_in_hours', 'min_advance_value', 'min_advance_in_hours', 'buf', 'allow_walkins', 'auto_confirm', 'allow_reschedule'),
+	),
+);
+
+export const UpdateRemindersS = Schema.partial(BookingSettings.pipe(Schema.pick('send_reminders', 'reminder_hours')));
+
+export const UpdateDepositsS = Schema.partial(BookingSettings.pipe(Schema.pick('require_payment', 'require_deposit', 'deposit_amount', 'deposit_is_fixed')));
+
+export const UpdateCancellationS = Schema.partial(BookingSettings.pipe(Schema.pick('allow_cancel', 'cancellation_deadline_hours', 'cancellation_policy')));
 
 // ═══ API CLIENT ════════════════════════════════════════════════════════════
 

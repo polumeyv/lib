@@ -205,6 +205,12 @@ export class OtpService extends Effect.Service<OtpService>()('OtpService', {
 			});
 
 		return {
+			/** Look up the user for `email` and seed the OTP cache. Used to bridge legitimate
+			 *  out-of-band entry points (e.g. OAuth callback → link flow) into `initLinkAndSend`,
+			 *  which is strictly cache-only by design and would otherwise fail SessionExpired.
+			 *  Resolves to the cached user (or null if no user exists for the email). */
+			seedLinkCache: (email: typeof Email.Type) => lookupAndCacheUser(email, false),
+
 			initAndSend: (email: typeof Email.Type) =>
 				Effect.gen(function* () {
 					const oidc = yield* Effect.serviceOption(OidcAuthFlow);
@@ -282,6 +288,7 @@ export class OtpService extends Effect.Service<OtpService>()('OtpService', {
 
 					// Linking only consults a cached user; never triggers a DB lookup.
 					// A missing/sentinel value is "session expired" — fail before deciding.
+					// Callers entering linking from an OAuth callback must `seedLinkCache(email)` first.
 					if ((!hash.user || hash.user === NO_USER_SENTINEL) && hash.sends < config.maxEmailSends) {
 						return yield* Effect.fail(new SessionExpiredError({ message: 'Your session has expired, please sign in again' }));
 					}

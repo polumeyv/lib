@@ -311,6 +311,33 @@ describe('OtpService.initLinkAndSend', () => {
 		}
 	});
 
+	test('seedLinkCache + initLinkAndSend issues a linking session for an existing user', async () => {
+		const h = makeHarness({ user: { sub: SUB, locked: false, terms_acc: null } });
+
+		const result = await run(
+			Effect.flatMap(OtpService, (otp) => Effect.zipRight(otp.seedLinkCache(EMAIL), otp.initLinkAndSend(EMAIL))),
+			h.layer,
+		);
+
+		expect(result).toBeInstanceOf(OtpSession);
+		expect(h.store.get('otp:test@example.com')?.get('link')).toBe('1');
+	});
+
+	test('seedLinkCache writes the sentinel and initLinkAndSend still fails SessionExpired for unknown emails', async () => {
+		const h = makeHarness({ user: null });
+
+		const exit = await runExit(
+			Effect.flatMap(OtpService, (otp) => Effect.zipRight(otp.seedLinkCache(EMAIL), otp.initLinkAndSend(EMAIL))),
+			h.layer,
+		);
+
+		expect(Exit.isFailure(exit)).toBe(true);
+		if (Exit.isFailure(exit)) {
+			const failure = Cause.failureOption(exit.cause);
+			if (Option.isSome(failure)) expect((failure.value as { _tag: string })._tag).toBe('SessionExpiredError');
+		}
+	});
+
 	test('issues a linking session with link=1 once the cached user is present', async () => {
 		// otpResendMs=0 so the link send isn't suppressed by cooldown from the preceding initAndSend.
 		const h = makeHarness({ user: { sub: SUB, locked: false, terms_acc: null }, config: { otpResendMs: 0 } });

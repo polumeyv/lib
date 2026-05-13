@@ -1,6 +1,6 @@
 {
   "name": "@polumeyv/lib",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Effect-based infrastructure + auth library for Bun applications",
   "license": "MIT",
   "publishConfig": {
@@ -47,6 +47,10 @@
     "./public/types": {
       "types": "./src/public/types/index.ts",
       "default": "./src/public/types/index.ts"
+    },
+    "./public/contact": {
+      "types": "./src/public/contact.ts",
+      "default": "./src/public/contact.ts"
     },
     "./booking": {
       "types": "./src/booking/index.ts",

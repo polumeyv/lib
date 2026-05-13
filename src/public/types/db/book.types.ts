@@ -87,7 +87,7 @@ export const UserBookingRow = Schema.Struct({
 	amount: Schema.NullOr(Schema.Number),
 	notes: Schema.NullOr(Schema.String),
 	service_name: Schema.NullOr(Schema.String),
-	business_name: Schema.NullOr(Schema.String),
-	business_address: Schema.NullOr(Schema.String),
+	business_name: Schema.String,
+	business_address: Schema.String,
 });
 export type UserBookingRow = typeof UserBookingRow.Type;
