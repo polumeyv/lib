@@ -2,13 +2,10 @@ import { generateAuthenticationOptions, verifyAuthenticationResponse, generateRe
 import type { AuthenticationResponseJSON, RegistrationResponseJSON, CredentialDeviceType, AuthenticatorTransportFuture } from '@simplewebauthn/server';
 import { Context, Effect } from 'effect';
 import { Postgres, SessionService } from '@polumeyv/lib/server';
-import { AuthConfig } from '../config';
 import { UserSub } from '../model';
 import { WebAuthnError } from '../errors';
 
-export class PasskeyConfig extends Context.Tag('PasskeyConfig')<PasskeyConfig, { readonly rpID: string; readonly rpName: string; readonly expectedOrigin: string }>() {}
-
-const Key = (sub: string) => `webauthn:${sub}`;
+const Key = (challengeId: string) => `webauthn:${challengeId}`;
 
 /**
  * ### Required table
@@ -39,10 +36,11 @@ interface PasskeyCredential {
 	created_at: Date;
 }
 
-/** Passkey (WebAuthn) authentication service — server-only. Consuming apps must provide `Redis`, `AuthConfig`, `Postgres`, and `PasskeyConfig` layers. */
+export class PasskeyConfig extends Context.Tag('PasskeyConfig')<PasskeyConfig, { readonly rpID: string; readonly rpName: string; readonly expectedOrigin: string }>() {}
+
+/** Passkey (WebAuthn) authentication service — server-only. Consuming apps must provide `Redis`, `Postgres`, and `PasskeyConfig` layers. */
 export class PasskeyService extends Effect.Service<PasskeyService>()('PasskeyService', {
 	effect: Effect.gen(function* () {
-		const { webauthnSessionTtl } = yield* AuthConfig;
 		const session = yield* SessionService;
 		const { rpID, rpName, expectedOrigin } = yield* PasskeyConfig;
 		const pg = yield* Postgres;
@@ -56,7 +54,7 @@ export class PasskeyService extends Effect.Service<PasskeyService>()('PasskeySer
 				}),
 				Effect.sync(() => Bun.randomUUIDv7()),
 			).pipe(
-				Effect.tap(([options, challengeKey]) => session.push(options.challenge, webauthnSessionTtl, Key(challengeKey))),
+				Effect.tap(([options, challengeKey]) => session.push(options.challenge, 300, Key(challengeKey))),
 				Effect.tapError((e) => Effect.logWarning('[passkey] generateAuthOptions failed', e)),
 			),
 
@@ -111,7 +109,7 @@ export class PasskeyService extends Effect.Service<PasskeyService>()('PasskeySer
 								}),
 							catch: (e) => new WebAuthnError({ cause: e, message: 'Failed to generate registration options' }),
 						}),
-						Effect.tap((options) => session.push(Key(user.sub), webauthnSessionTtl, { challenge: options.challenge, webauthn_user_id: options.user.id })),
+						Effect.tap((options) => session.push(Key(user.sub), 300, { challenge: options.challenge, webauthn_user_id: options.user.id })),
 						Effect.tapError((e) => Effect.logWarning('[passkey] generateRegOptions failed', e)),
 					),
 
@@ -147,7 +145,12 @@ export class PasskeyService extends Effect.Service<PasskeyService>()('PasskeySer
 				).pipe(Effect.tapError((e) => Effect.logWarning('[passkey] verifyReg failed', e))),
 
 			listPasskeys: (sub: typeof UserSub.Type) =>
-				pg.use((sql) => sql<Pick<PasskeyCredential, 'id' | 'device_type' | 'created_at'>[]>`SELECT id, device_type, created_at FROM passkey_credentials WHERE sub = ${sub} ORDER BY created_at DESC`),
+				pg.use(
+					(sql) =>
+						sql<
+							Pick<PasskeyCredential, 'id' | 'device_type' | 'created_at'>[]
+						>`SELECT id, device_type, created_at FROM passkey_credentials WHERE sub = ${sub} ORDER BY created_at DESC`,
+				),
 
 			deletePasskey: (sub: typeof UserSub.Type, id: string) => pg.use((sql) => sql`DELETE FROM passkey_credentials WHERE id = ${id} AND sub = ${sub}`),
 		};

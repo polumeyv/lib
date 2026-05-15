@@ -1,7 +1,7 @@
-import { Effect, Option, Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 import { Postgres, Redis } from '@polumeyv/lib/server';
 import { Email, UserName } from '@polumeyv/lib/public/types';
-import { UserSub } from '../model';
+import { UserSub, AuthPayload } from '../model';
 
 const NameJson = Schema.parseJson(UserName);
 const NAME_CACHE_TTL = 84_000;
@@ -18,10 +18,7 @@ export class BaseUserRepository extends Effect.Service<BaseUserRepository>()('Ba
 					json
 						? Schema.decode(NameJson)(json)
 						: Effect.tap(
-								Effect.andThen(
-									pg.first<[typeof UserName.Type]>((sql) => sql`SELECT f_name, l_name FROM users WHERE sub = ${sub}`),
-									Effect.fromNullable,
-								),
+								pg.first<[typeof UserName.Type]>((sql) => sql`SELECT f_name, l_name FROM users WHERE sub = ${sub}`, { onNull: 'fail' }),
 								(data) => Effect.andThen(Schema.encode(NameJson)(data), (encoded) => redis.use((c) => c.setex(`name:${sub}`, NAME_CACHE_TTL, encoded))),
 							),
 			);
@@ -34,21 +31,19 @@ export class BaseUserRepository extends Effect.Service<BaseUserRepository>()('Ba
 		return {
 			getName,
 			updateName,
+			/** Fetch the `AuthPayload` (identity + terms-accepted flag) for a `sub`. Fails `NoSuchElementException` if absent. */
+			getAuthPayload: (sub: typeof UserSub.Type) =>
+				pg.first<[typeof AuthPayload.Type]>((sql) => sql`SELECT sub, email, (terms_acc IS NOT NULL) AS terms_acc FROM users WHERE sub = ${sub}`, { onNull: 'fail' }),
+
 			getSubByEmail: (email: typeof Email.Type) =>
-				Effect.map(
-					pg.first((sql) => sql<{ sub: typeof UserSub.Type; locked: boolean; terms_acc: Date | null }[]>`SELECT sub, locked, terms_acc FROM users WHERE email = ${email}`),
-					Option.fromNullable,
-				),
+				pg.first((sql) => sql<{ sub: typeof UserSub.Type; locked: boolean; terms_acc: Date | null }[]>`SELECT sub, locked, terms_acc FROM users WHERE email = ${email}`),
 			getSubByEmailWithOidc: (email: typeof Email.Type) =>
-				Effect.map(
-					pg.first(
-						(sql) => sql<{ sub: typeof UserSub.Type; locked: boolean; terms_acc: Date | null; has_oidc: boolean }[]>`
+				pg.first(
+					(sql) => sql<{ sub: typeof UserSub.Type; locked: boolean; terms_acc: Date | null; has_oidc: boolean }[]>`
 					SELECT u.sub, u.locked, u.terms_acc, oa.sub IS NOT NULL AS has_oidc
 					FROM users u LEFT JOIN oidc_accounts oa ON oa.sub = u.sub
 					WHERE u.email = ${email}
 				`,
-					),
-					Option.fromNullable,
 				),
 
 			lockUser: (sub: typeof UserSub.Type) => pg.use((sql) => sql`UPDATE users SET locked = TRUE WHERE sub = ${sub}`),

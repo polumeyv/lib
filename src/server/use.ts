@@ -9,10 +9,6 @@ import { Effect } from 'effect';
 export const makeUse =
 	<C, E>(client: C, Err: new (args: { cause?: unknown; message?: string }) => E, name: string) =>
 	<T>(fn: (c: C) => T): Effect.Effect<Awaited<T>, E, never> =>
-		Effect.flatMap(
-			Effect.try({ try: () => fn(client), catch: (e) => new Err({ cause: e, message: `Synchronous Error in ${name}.use` }) }),
-			(r) =>
-				r instanceof Promise
-					? Effect.tryPromise({ try: () => r, catch: (e) => new Err({ cause: e, message: `Asynchronous Error in ${name}.use` }) })
-					: Effect.succeed(r as Awaited<T>),
+		Effect.flatMap(Effect.try({ try: () => fn(client), catch: (e) => new Err({ cause: e, message: `Synchronous Error in ${name}.use` }) }), (r) =>
+			r instanceof Promise ? Effect.tryPromise({ try: () => r, catch: (e) => new Err({ cause: e, message: `Asynchronous Error in ${name}.use` }) }) : Effect.succeed(r as Awaited<T>),
 		);

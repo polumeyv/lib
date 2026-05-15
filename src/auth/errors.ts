@@ -1,5 +1,5 @@
 import { Data } from 'effect';
-import type { HttpStatusError } from '@polumeyv/lib/server/error';
+import type { HttpStatusError } from '@polumeyv/lib/error';
 
 /** Tagged error for JWT operations (sign, verify, revoke, key import). */
 export class JwtError extends Data.TaggedError('JwtError')<{ cause?: unknown; message?: string }> implements HttpStatusError {

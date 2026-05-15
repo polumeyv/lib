@@ -1,21 +1,31 @@
 /**
  * @module @polumeyv/utils/server/stripe
  *
- * Tagged Effect error for Stripe SDK failures plus a `makeStripeCall` factory.
- * Each app constructs its own `new StripeSDK(secretKey)` directly (no Layer
- * needed — Stripe has no connection lifecycle), then wires up `stripeCall`
- * with `makeStripeCall(stripe)`. The helper:
- *   1. Wraps the SDK rejection in a tagged `StripeError` so callers can
- *      `Effect.catchTag('StripeError', …)`.
- *   2. Logs the underlying SDK error via `Effect.logError` on every failure
- *      so production logs show the real cause, not just `StripeError`.
+ * Effect-bridged Stripe SDK service. Apps provide a `StripeConfig` layer; the
+ * service builds the SDK instance, exposes it as `stripe`, wraps Promise calls
+ * via `call()`, and (when `webhookSecret` is configured) verifies inbound webhook
+ * signatures via `verifyWebhook()`.
+ *
+ * ```ts
+ * // app db.ts:
+ * Layer.provideMerge(
+ *     Layer.mergeAll(StripeService.Default, BaseUserRepository.Default, …),
+ *     Layer.succeed(StripeConfig, { secretKey: STRIPE_SECRET_KEY, apiVersion: '2026-04-22.dahlia', webhookSecret: STRIPE_WEBHOOK_SECRET }),
+ * );
+ *
+ * // any service:
+ * const stripe = yield* StripeService;
+ * const c = yield* stripe.call((s) => s.customers.create({ … }));
+ * const event = yield* stripe.verifyWebhook(body, signature);
+ * ```
  */
 import StripeSDK from 'stripe';
-import { Data, Effect } from 'effect';
-import type { HttpStatusError } from './error';
+import { Context, Data, Effect } from 'effect';
+import type { HttpStatusError } from '@polumeyv/lib/error';
 
 type StripeSDKError = InstanceType<typeof StripeSDK.errors.StripeError>;
 
+/** Tagged Effect error wrapping an SDK rejection. `statusCode` defaults to 500 when Stripe didn't return one. */
 export class StripeError extends Data.TaggedError('StripeError')<{ err: StripeSDKError }> implements HttpStatusError {
 	get statusCode() {
 		return this.err.statusCode ?? 500;
@@ -25,45 +35,41 @@ export class StripeError extends Data.TaggedError('StripeError')<{ err: StripeSD
 	}
 }
 
-/** Build the Effect bridge for a given Stripe SDK instance. Maps rejections to
- *  `StripeError` and logs the underlying SDK error on every failure. */
-export const makeStripeCall = (stripe: StripeSDK) => <T>(fn: (s: StripeSDK) => Promise<T>) =>
-	Effect.tryPromise({ try: () => fn(stripe), catch: (e) => new StripeError({ err: e as StripeSDKError }) }).pipe(
-		Effect.tapError((e) => Effect.logError('Stripe SDK error', { code: e.code, statusCode: e.statusCode, err: e.err })),
-	);
+/** App-provided Stripe credentials. `webhookSecret` is required only by apps that handle inbound Stripe webhooks. */
+export class StripeConfig extends Context.Tag('StripeConfig')<
+	StripeConfig,
+	{
+		readonly secretKey: string;
+		readonly apiVersion?: string;
+		readonly webhookSecret?: string;
+	}
+>() {}
 
-/** Webhook signature verifier bound to a Stripe instance + secret. Returns
- *  `(body, signature) => Effect<Stripe.Event, StripeError>`. */
-export const makeStripeVerifyWebhook = (stripe: StripeSDK, secret: string) => (body: string, signature: string) =>
-	Effect.tryPromise({
-		try: () => stripe.webhooks.constructEventAsync(body, signature, secret),
-		catch: (e) => new StripeError({ err: e as StripeSDKError }),
-	});
-
-/** One-shot constructor: builds the SDK instance + bound `stripeCall`, plus an
- *  optional `stripeVerifyWebhook` if `webhookSecret` is given. Apps export
- *  whatever they need via destructure:
- *
- *  ```ts
- *  export const { stripe, stripeCall } = makeStripe({ secretKey, apiVersion });
- *  export const { stripe, stripeCall, stripeVerifyWebhook } = makeStripe({ secretKey, apiVersion, webhookSecret });
- *  ```
+/**
+ * Effect-bridged Stripe SDK service. Apps provide `StripeConfig` and add
+ * `StripeService.Default` to their layer; consumers `yield* StripeService` to
+ * get `{ stripe, call, verifyWebhook }`.
  */
-export function makeStripe(config: { secretKey: string; apiVersion?: string; webhookSecret: string }): {
-	stripe: StripeSDK;
-	stripeCall: ReturnType<typeof makeStripeCall>;
-	stripeVerifyWebhook: ReturnType<typeof makeStripeVerifyWebhook>;
-};
-export function makeStripe(config: { secretKey: string; apiVersion?: string }): {
-	stripe: StripeSDK;
-	stripeCall: ReturnType<typeof makeStripeCall>;
-};
-export function makeStripe(config: { secretKey: string; apiVersion?: string; webhookSecret?: string }) {
-	// apiVersion typing is a literal union per Stripe SDK release; runtime accepts any string the API understands.
-	const stripe = new StripeSDK(config.secretKey, config.apiVersion ? { apiVersion: config.apiVersion as typeof StripeSDK.API_VERSION } : undefined);
-	return {
-		stripe,
-		stripeCall: makeStripeCall(stripe),
-		...(config.webhookSecret ? { stripeVerifyWebhook: makeStripeVerifyWebhook(stripe, config.webhookSecret) } : {}),
-	};
-}
+export class StripeService extends Effect.Service<StripeService>()('StripeService', {
+	effect: Effect.gen(function* () {
+		const config = yield* StripeConfig;
+		// apiVersion typing is a literal union per Stripe SDK release; runtime accepts any string the API understands.
+		const stripe = new StripeSDK(config.secretKey, config.apiVersion ? { apiVersion: config.apiVersion as typeof StripeSDK.API_VERSION } : undefined);
+
+		const call = <T>(fn: (s: StripeSDK) => Promise<T>) =>
+			Effect.tryPromise({ try: () => fn(stripe), catch: (e) => new StripeError({ err: e as StripeSDKError }) }).pipe(
+				Effect.tapError((e) => Effect.logError('Stripe SDK error', { code: e.code, statusCode: e.statusCode, err: e.err })),
+			);
+
+		const verifyWebhook = (body: string, signature: string) =>
+			Effect.tryPromise({
+				try: () => {
+					if (!config.webhookSecret) throw new Error('verifyWebhook called but StripeConfig has no webhookSecret');
+					return stripe.webhooks.constructEventAsync(body, signature, config.webhookSecret);
+				},
+				catch: (e) => new StripeError({ err: e as StripeSDKError }),
+			});
+
+		return { stripe, call, verifyWebhook };
+	}),
+}) {}

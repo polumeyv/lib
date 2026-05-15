@@ -35,11 +35,6 @@ type SubjectClaim = {
 	token_identifier_alg?: string;
 	token?: string;
 };
-
-type SecurityEventPayload = JWTPayload & {
-	events?: Record<string, { subject?: SubjectClaim; reason?: string; state?: string }>;
-};
-
 export type RiscEvent = {
 	jti: string;
 	type: string;
@@ -61,35 +56,39 @@ export class RiscService extends Effect.Service<RiscService>()('RiscService', {
 		let discovery: RiscDiscovery | null = null;
 		let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
-		const loadDiscovery = Effect.tryPromise({
-			try: async () => {
-				if (discovery && jwks) return { discovery, jwks };
-				const res = await fetch(RISC_DISCOVERY);
-				if (!res.ok) throw new Error(`RISC discovery ${res.status}`);
-				discovery = (await res.json()) as RiscDiscovery;
-				jwks = createRemoteJWKSet(new URL(discovery.jwks_uri));
-				return { discovery, jwks };
-			},
-			catch: (e) => new OAuthError({ cause: e, message: 'RISC discovery failed' }),
-		});
-
 		/** Validate + decode a Security Event Token. Throws on any failure. */
 		const verifyToken = (token: string) =>
-			Effect.flatMap(loadDiscovery, ({ discovery, jwks }) =>
+			Effect.flatMap(
 				Effect.tryPromise({
 					try: async () => {
-						const { payload } = await jwtVerify<SecurityEventPayload>(token, jwks, {
-							issuer: discovery.issuer,
-							audience: audiences as string[],
-							// Security event tokens have no expiry — don't check `exp`.
-							clockTolerance: Number.MAX_SAFE_INTEGER,
-						});
-						if (!payload.jti) throw new Error('Missing jti');
-						if (!payload.events) throw new Error('Missing events claim');
-						return payload;
+						if (discovery && jwks) return { discovery, jwks };
+						const res = await fetch(RISC_DISCOVERY);
+						if (!res.ok) throw new Error(`RISC discovery ${res.status}`);
+						discovery = (await res.json()) as RiscDiscovery;
+						jwks = createRemoteJWKSet(new URL(discovery.jwks_uri));
+						return { discovery, jwks };
 					},
-					catch: (e) => new OAuthError({ cause: e, message: 'RISC token validation failed' }),
+					catch: (e) => new OAuthError({ cause: e, message: 'RISC discovery failed' }),
 				}),
+				({ discovery, jwks }) =>
+					Effect.tryPromise({
+						try: async () => {
+							const { payload } = await jwtVerify<
+								JWTPayload & {
+									events?: Record<string, { subject?: SubjectClaim; reason?: string; state?: string }>;
+								}
+							>(token, jwks, {
+								issuer: discovery.issuer,
+								audience: audiences as string[],
+								// Security event tokens have no expiry — don't check `exp`.
+								clockTolerance: Number.MAX_SAFE_INTEGER,
+							});
+							if (!payload.jti) throw new Error('Missing jti');
+							if (!payload.events) throw new Error('Missing events claim');
+							return payload;
+						},
+						catch: (e) => new OAuthError({ cause: e, message: 'RISC token validation failed' }),
+					}),
 			);
 
 		/** Record this jti as seen; returns `true` if it was new (caller should process), `false` if dup. */

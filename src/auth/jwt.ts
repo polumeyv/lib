@@ -2,7 +2,6 @@ import { type JWTPayload, type JWK, SignJWT, jwtVerify, importJWK, decodeJwt } f
 import { Context, Effect, Schema } from 'effect';
 import { SessionService } from '@polumeyv/lib/server';
 
-import { AuthConfig } from './config';
 import { AuthPayload } from './model';
 import { JwtError } from './errors';
 
@@ -15,13 +14,23 @@ const keyUtil = (key: JWK) =>
 const extractOAuth2Sid = (payload: JWTPayload): Effect.Effect<string, JwtError> =>
 	payload.type === 'refresh' && typeof payload.sid === 'string' ? Effect.succeed(payload.sid) : Effect.fail(new JwtError({ message: 'Invalid refresh token' }));
 
-export class JwtConfig extends Context.Tag('JwtConfig')<JwtConfig, { readonly privateJwk: JWK; readonly publicJwk: JWK; readonly issuer: string }>() {}
+export class JwtConfig extends Context.Tag('JwtConfig')<
+	JwtConfig,
+	{
+		readonly privateJwk: JWK;
+		readonly publicJwk: JWK;
+		readonly issuer: string;
+		/** Access token JWT lifetime in seconds (default: 900 — 15 min). */
+		readonly accessTtl: number;
+		/** Refresh token JWT lifetime in seconds (default: 604 800 — 7 days). */
+		readonly refreshTtl: number;
+	}
+>() {}
 
 /** JWT authentication service — issues, verifies, and revokes access/refresh token pairs. */
 export class Jwt extends Effect.Service<Jwt>()('Jwt', {
 	effect: Effect.gen(function* () {
-		const { privateJwk, publicJwk, issuer } = yield* JwtConfig;
-		const { accessTtl, refreshTtl, oauth2AccessTtl, oauth2RefreshTtl } = yield* AuthConfig;
+		const { privateJwk, publicJwk, issuer, accessTtl, refreshTtl } = yield* JwtConfig;
 		const session = yield* SessionService;
 		const privateKey = yield* keyUtil(privateJwk);
 		const publicKey = yield* keyUtil(publicJwk);
@@ -91,14 +100,13 @@ export class Jwt extends Effect.Service<Jwt>()('Jwt', {
 					),
 				),
 
-			revokeRefresh: (token: string) =>
-				Effect.tap(session.delete(`refresh:${token}`), () => Effect.logInfo(`[jwt] refresh token revoked (logout) token=${token}`)),
+			revokeRefresh: (token: string) => Effect.tap(session.delete(`refresh:${token}`), () => Effect.logInfo(`[jwt] refresh token revoked (logout) token=${token}`)),
 
-			/** Sign OAuth2 token pair for consumer apps (session-based refresh, no JTI rotation). */
-			signOAuth2Tokens: (payload: AuthPayload, sid: string, extraClaims?: Record<string, unknown>) =>
+			/** Sign OAuth2 token pair for consumer apps (session-based refresh, no JTI rotation). TTLs supplied by caller (typically OAuth2Service). */
+			signOAuth2Tokens: (payload: AuthPayload, sid: string, accessTtl: number, refreshTtl: number, extraClaims?: Record<string, unknown>) =>
 				Effect.all({
-					access_token: signOAuth2({ ...payload, ...extraClaims }, oauth2AccessTtl, payload.sub),
-					refresh_token: signOAuth2({ type: 'refresh', sid }, oauth2RefreshTtl),
+					access_token: signOAuth2({ ...payload, ...extraClaims }, accessTtl, payload.sub),
+					refresh_token: signOAuth2({ type: 'refresh', sid }, refreshTtl),
 				}),
 
 			verifyOAuth2Refresh: (token: string) =>
@@ -107,10 +115,7 @@ export class Jwt extends Effect.Service<Jwt>()('Jwt', {
 				),
 
 			decodeOAuth2RefreshSid: (token: string) =>
-				Effect.andThen(
-					Effect.try({ try: () => decodeJwt(token), catch: (e: any) => new JwtError({ message: e ?? 'Invalid refresh token' }) }),
-					extractOAuth2Sid,
-				),
+				Effect.andThen(Effect.try({ try: () => decodeJwt(token), catch: (e: any) => new JwtError({ message: e ?? 'Invalid refresh token' }) }), extractOAuth2Sid),
 		};
 	}),
 	dependencies: [SessionService.Default],

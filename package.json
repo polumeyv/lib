@@ -1,6 +1,6 @@
 {
   "name": "@polumeyv/lib",
-  "version": "0.6.0",
+  "version": "0.9.0",
   "description": "Effect-based infrastructure + auth library for Bun applications",
   "license": "MIT",
   "publishConfig": {
@@ -36,6 +36,10 @@
     "bin"
   ],
   "exports": {
+    "./error": {
+      "types": "./src/error.ts",
+      "default": "./src/error.ts"
+    },
     "./server": {
       "types": "./src/server/index.ts",
       "default": "./src/server/index.ts"
@@ -76,9 +80,9 @@
       "types": "./src/auth/passkey/passkey.client.ts",
       "default": "./src/auth/passkey/passkey.client.ts"
     },
-    "./auth/oauth2-client": {
-      "types": "./src/auth/oauth2/index.ts",
-      "default": "./src/auth/oauth2/index.ts"
+    "./auth/idp-client": {
+      "types": "./src/auth/idp/index.ts",
+      "default": "./src/auth/idp/index.ts"
     }
   },
   "peerDependencies": {

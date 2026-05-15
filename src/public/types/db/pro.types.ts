@@ -37,6 +37,10 @@ export const ProBusinesses = Schema.Struct({
 	status: Schema.Number,
 	verified_at: Schema.NullOr(Schema.DateFromSelf),
 	stripe_account_id: Schema.NullOr(Schema.String), // Stripe Connect account ID (acct_xxx)
+	platform_fee_bps: Schema.Number, // basis points withheld via application_fee_amount on destination charges
+	charges_enabled: Schema.Boolean, // cached from Stripe account.updated webhook
+	onboarding_complete: Schema.Boolean, // cached from Stripe account.updated webhook
+	payouts_enabled: Schema.Boolean, // cached from Stripe account.updated webhook
 	// Booking settings
 	allow_online: Schema.Boolean,
 	require_deposit: Schema.Boolean,
@@ -198,12 +202,16 @@ export const ProBookings = Schema.Struct({
 	customer_phone: Schema.NullOr(Schema.String),
 	time_slot: Schema.String,
 	status: BOOKING_STATUS,
-	amount: Schema.NullOr(Schema.Number), // cents
+	amount: Schema.Number, // cents
 	notes: Schema.NullOr(Schema.String),
 	cancellation_reason: Schema.NullOr(Schema.String),
 	cancelled_by: Schema.NullOr(Schema.String),
 	cancelled: Schema.NullOr(Schema.DateFromSelf),
 	completed: Schema.NullOr(Schema.DateFromSelf),
+	payment_intent_id: Schema.NullOr(Schema.String),
+	payment_status: Schema.String, // 'none' | Stripe PI status | 'refunded' | 'disputed'
+	platform_fee_amount: Schema.NullOr(Schema.Number), // cents
+	transfer_id: Schema.NullOr(Schema.String),
 	updated: Schema.DateFromSelf,
 });
 export type ProBookingsType = typeof ProBookings.Type;

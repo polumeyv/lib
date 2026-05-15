@@ -34,21 +34,24 @@ import { Email } from '@polumeyv/lib/public/types';
 export class OAuthClaims extends Schema.Class<OAuthClaims>('OAuthClaims')({
 	sub: Schema.String,
 	email: Email,
-	given_name: Schema.NullishOr(Schema.String),
-	family_name: Schema.NullishOr(Schema.String),
-	picture: Schema.NullishOr(Schema.String),
-	locale: Schema.NullishOr(Schema.String),
+	given_name: Schema.NullOr(Schema.String),
+	family_name: Schema.NullOr(Schema.String),
+	picture: Schema.NullOr(Schema.String),
+	locale: Schema.NullOr(Schema.String),
 }) {}
 
 export const OAuthResult = Schema.Struct({
 	provider: Schema.String,
 	access_token: Schema.String,
-	refresh_token: Schema.optional(Schema.String),
+	refresh_token: Schema.NullOr(Schema.String),
 	/** Absolute access-token expiry (derived from the provider's `expires_in`). */
-	expires_at: Schema.optional(Schema.DateFromSelf),
+	expires_at: Schema.NullOr(Schema.DateFromSelf),
 	scopes: Schema.String,
 	claims: OAuthClaims,
 });
+
+export type OAuthResult = typeof OAuthResult.Type;
+
 
 export const OidcAccount = Schema.Struct({
 	sub: UserSub,

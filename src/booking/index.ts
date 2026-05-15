@@ -1,18 +1,13 @@
 import { Data, Schema } from 'effect';
 import { BOOKING_STATUS, type BookingStatus } from '../public/types/db/pro.types';
-import type { HttpStatusError } from '../server';
+import type { HttpStatusError } from '@polumeyv/lib/error';
+import { UserSub } from '../auth';
 
 export { BOOKING_STATUS, type BookingStatus };
 
 // ═══ DOMAIN ERRORS ════════════════════════════════════════════════════════
 // Tagged errors for booking-specific HTTP statuses not covered by Effect's
 // built-in Cause exceptions or lib's existing per-domain errors.
-
-export class SlotConflictError extends Data.TaggedError('SlotConflictError')<{ message: string }> implements HttpStatusError {
-	get statusCode() {
-		return 409 as const;
-	}
-}
 
 export class BookingSessionExpiredError extends Data.TaggedError('BookingSessionExpiredError')<{ message: string }> implements HttpStatusError {
 	get statusCode() {
@@ -43,7 +38,7 @@ export interface BookingListItem {
 	customer_phone: string | null;
 	amount: number | null;
 	notes: string | null;
-	sub: string | null;
+	sub: typeof UserSub.Type | null;
 	dur: number | null;
 	service_name: string | null;
 	customer_name: string;
@@ -51,7 +46,7 @@ export interface BookingListItem {
 
 export interface Booking {
 	id: string;
-	sub: string | null;
+	sub: typeof UserSub.Type | null;
 	customer_name: string;
 	customer_email: string | null;
 	customer_phone: string | null;

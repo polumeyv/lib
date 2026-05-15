@@ -1,5 +1,5 @@
 export * from './crypto';
-export * from './error';
+export * from './customer';
 export * from './postgres';
 export * from './redis';
 export * from './session';

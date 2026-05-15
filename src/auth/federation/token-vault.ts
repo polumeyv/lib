@@ -1,4 +1,4 @@
-import { Effect, Option } from 'effect';
+import { Effect } from 'effect';
 import { refreshTokenGrant } from 'openid-client';
 import type { UserSub } from '../model';
 import { OAuthError } from '../errors';
@@ -23,21 +23,11 @@ export class OAuthTokenVault extends Effect.Service<OAuthTokenVault>()('OAuthTok
 
 		const getValidAccessToken = (sub: typeof UserSub.Type, provider: string) =>
 			Effect.gen(function* () {
-				const account = yield* Effect.flatMap(
-					store.getActive(sub, provider),
-					Option.match({
-						onNone: () => Effect.fail(new OAuthError({ message: `No active ${provider} account for ${sub}` })),
-						onSome: Effect.succeed,
-					}),
-				);
-				if (!account.refresh_token) {
-					return yield* Effect.fail(new OAuthError({ message: `Missing refresh_token for ${sub}/${provider}` }));
-				}
+				const account = yield* Effect.flatten(store.getBySub(sub, provider));
+				if (!account.refresh_token) return yield* Effect.fail(new OAuthError({ message: `Missing refresh_token for ${sub}/${provider}` }));
 
 				// Cached token still has more than the refresh threshold of life — return it.
-				if (account.access_token && account.token_expires && account.token_expires.getTime() - Date.now() > REFRESH_THRESHOLD_MS) {
-					return account.access_token;
-				}
+				if (account.access_token && account.token_expires && account.token_expires.getTime() - Date.now() > REFRESH_THRESHOLD_MS) return account.access_token;
 
 				// Refresh + persist.
 				const { config } = yield* resolver.resolve(provider);
@@ -45,11 +35,13 @@ export class OAuthTokenVault extends Effect.Service<OAuthTokenVault>()('OAuthTok
 					try: () => refreshTokenGrant(config, account.refresh_token!),
 					catch: (e) => new OAuthError({ cause: e, message: `Token refresh failed for ${sub}/${provider}` }),
 				});
-				if (!tokens.access_token) {
-					return yield* Effect.fail(new OAuthError({ message: `Provider returned no access_token on refresh for ${sub}/${provider}` }));
-				}
-				const expiresAt = tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : new Date(Date.now() + 3600_000);
-				yield* store.replaceAccessToken(sub, provider, tokens.access_token, expiresAt);
+				if (!tokens.access_token) return yield* Effect.fail(new OAuthError({ message: `Provider returned no access_token on refresh for ${sub}/${provider}` }));
+				yield* store.replaceAccessToken(
+					sub,
+					provider,
+					tokens.access_token,
+					tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : new Date(Date.now() + 3600_000),
+				);
 				return tokens.access_token;
 			});
 

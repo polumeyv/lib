@@ -21,7 +21,7 @@
  */
 import { RedisClient, type RedisOptions } from 'bun';
 import { Context, Data, Effect } from 'effect';
-import type { HttpStatusError } from './error';
+import type { HttpStatusError } from '@polumeyv/lib/error';
 import { makeUse } from './use';
 
 export class RedisError extends Data.TaggedError('RedisError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
