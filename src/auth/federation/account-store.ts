@@ -42,10 +42,13 @@ export class OAuthAccountStore extends Effect.Service<OAuthAccountStore>()('OAut
 				(access_token, refresh_token) => ({ ...row, access_token, refresh_token }) satisfies OAuthAccount,
 			);
 
+		// Encrypts the access+refresh token pair from an OAuthResult concurrently.
+		const encodeTokens = (r: OAuthResult) => Effect.zip(encode(r.access_token), encode(r.refresh_token), { concurrent: true });
+
 		return {
 			/** Insert or update an account for `sub`; sets status='active'. Tokens encrypted via codec. The OAuthResult shape comes straight from `OidcAuthFlow.exchangeCode` — no per-call-site mapping. */
 			link: (sub: typeof UserSub.Type, r: OAuthResult) =>
-				Effect.andThen(Effect.zip(encode(r.access_token), encode(r.refresh_token)), ([access, refresh]) =>
+				Effect.andThen(encodeTokens(r), ([access, refresh]) =>
 					pg.use(
 						(sql) => sql`
                     INSERT INTO oidc_accounts (sub, provider, subject, email, locale, access_token, refresh_token, scopes, token_expires)
@@ -75,12 +78,6 @@ export class OAuthAccountStore extends Effect.Service<OAuthAccountStore>()('OAut
 					(opt) => Effect.transposeOption(Option.map(opt, decryptRow)),
 				),
 
-			/** Look up `users.sub` + terms-acceptance state by email. Used by auth-flow's email-fallback path. */
-			getByEmail: (email: typeof Email.Type) =>
-				pg.first((sql) => sql<{ sub: typeof UserSub.Type; terms_acc: boolean }[]>`SELECT sub, terms_acc IS NOT NULL AS terms_acc FROM users WHERE email = ${email}`, {
-					onNull: 'option',
-				}),
-
 			/**
 			 * OAuth callback resolution: refresh tokens for an existing link and look up the user, OR fall back to
 			 * email lookup for an existing user that hasn't yet linked this provider.
@@ -91,7 +88,7 @@ export class OAuthAccountStore extends Effect.Service<OAuthAccountStore>()('OAut
 			 *   None                                            — neither (caller starts signup)
 			 */
 			refreshLinkOrResolveUser: (r: OAuthResult) =>
-				Effect.flatMap(Effect.zip(encode(r.access_token), encode(r.refresh_token), { concurrent: true }), ([access, refresh]) =>
+				Effect.flatMap(encodeTokens(r), ([access, refresh]) =>
 					pg.first(
 						(sql) => sql<{ sub: typeof UserSub.Type; email: typeof Email.Type; terms_acc: boolean; linked: boolean }[]>`
 							WITH updated AS (
@@ -114,27 +111,11 @@ export class OAuthAccountStore extends Effect.Service<OAuthAccountStore>()('OAut
 					),
 				),
 
-			/** All accounts linked to a user (any status). Plaintext tokens. */
-			listForUser: (sub: typeof UserSub.Type) =>
-				Effect.flatMap(
-					pg.use(
-						(sql) =>
-							sql<
-								OAuthAccount[]
-							>`SELECT sub, provider, subject, email, locale, access_token, refresh_token, scopes, token_expires, status FROM oidc_accounts WHERE sub = ${sub}`,
-					),
-					(rows) => Effect.forEach(rows, decryptRow),
-				),
-
 			/** Replace just the access_token + token_expires for a specific provider. Used by token vault on refresh. */
 			replaceAccessToken: (sub: typeof UserSub.Type, provider: string, access_token: string, expires_at: Date) =>
 				Effect.flatMap(encode(access_token), (enc) =>
 					pg.use((sql) => sql`UPDATE oidc_accounts SET access_token = ${enc}, token_expires = ${expires_at} WHERE sub = ${sub} AND provider = ${provider}`),
 				),
-
-			/** Null out tokens + scopes for a provider; row stays. Used by disconnect flows. */
-			clearTokens: (sub: typeof UserSub.Type, provider: string) =>
-				pg.use((sql) => sql`UPDATE oidc_accounts SET access_token = NULL, refresh_token = NULL, scopes = NULL WHERE sub = ${sub} AND provider = ${provider}`),
 
 			/** Delete every linked account for a user. Used by full disconnect. */
 			unlinkAll: (sub: typeof UserSub.Type) => pg.use((sql) => sql`DELETE FROM oidc_accounts WHERE sub = ${sub}`),

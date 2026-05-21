@@ -1,18 +1,26 @@
 import { Effect, Schema, Cause, Context } from 'effect';
 import { sessionExpired, CryptoService } from '@polumeyv/lib/server';
+import { ValidationError } from '@polumeyv/lib/error';
 import { Email } from '@polumeyv/lib/public/types';
-import { OtpSession, ResendCooldown, AuthenticatedUser, makeOtpSchema } from './otp.model';
+import { OtpSession, AuthenticatedUser, makeOtpSchema, SealedToken } from './otp.model';
 import { OtpSessionStore, SENTINEL } from './otp-session.store';
 import { LockedService } from '../locked.service';
-import { SealedToken } from './otp.model';
 
-// -1 = max sends reached, positive seconds = still cooling down, null = ready to send.
-const computeCooldown = (sends: number, lastSend: number, otpResendMs: number, maxEmailSends: number): number | null => {
-	if (sends >= maxEmailSends) return -1;
-	if (lastSend <= 0) return null;
-	const remaining = Math.ceil((otpResendMs - (Date.now() - lastSend)) / 1000);
-	return remaining > 0 ? remaining : null;
-};
+/**
+ * Tagged error for a resend requested before the cooldown elapsed (`countdown` = seconds remaining)
+ * or after the send cap is hit (`countdown` = -1). Subclasses `ValidationError` so the route boundary
+ * maps it to a form `invalid()` with no app-side branching.
+ */
+export class ResendCooldown extends ValidationError {
+	constructor(readonly countdown: number) {
+		super({
+			message:
+				countdown === -1
+					? "You've requested the maximum number of codes. Please try again later."
+					: `Please wait ${countdown} second${countdown === 1 ? '' : 's'} before requesting another code.`,
+		});
+	}
+}
 
 /**
  * Build the "send a fresh OTP code" outcome from the current state. Pure constructor —
@@ -20,21 +28,19 @@ const computeCooldown = (sends: number, lastSend: number, otpResendMs: number, m
  * Increments `sends`, stamps a new `last_send`, and carries other fields from `state`.
  */
 
-export const OtpAlerts = Context.GenericTag<{
-	sendVerificationCode: (to: typeof Email.Type, code: string) => Effect.Effect<void>;
-}>('OtpAlerts');
-
-export class OtpConfig extends Context.Tag('JwtConfig')<
+export class OtpConfig extends Context.Tag('OtpConfig')<
 	OtpConfig,
 	{
 		/** Minimum interval in milliseconds between OTP code sends (default: 35 000). */
-		readonly otpResendMs: number;
+		readonly otpResendMs?: number;
 		/** Optional maximum number of OTP sends per email address, to prevent abuse (default: 8). */
-		readonly maxEmailSends: number;
+		readonly maxEmailSends?: number;
 		/** Maximum age in milliseconds before an OTP code expires (default: 300_000 — 5 min). */
-		readonly otpCodeTtlMs: number;
+		readonly otpCodeTtlMs?: number;
 		/** Number of digits in a generated OTP code (default: 6). */
-		readonly otpCodeLen: number;
+		readonly otpCodeLen?: number;
+		/** Delivery hook — fired after a code is generated to push it to the user (email/SMS). */
+		readonly sendVerificationCode: (to: typeof Email.Type, code: string) => Effect.Effect<void>;
 	}
 >() {}
 
@@ -47,9 +53,8 @@ export class OtpConfig extends Context.Tag('JwtConfig')<
  */
 export class OtpService extends Effect.Service<OtpService>()('OtpService', {
 	effect: Effect.gen(function* () {
-		const { otpResendMs, maxEmailSends, otpCodeTtlMs, otpCodeLen } = yield* OtpConfig;
+		const { otpResendMs = 35_000, maxEmailSends = 8, otpCodeTtlMs = 300_000, otpCodeLen = 6, sendVerificationCode } = yield* OtpConfig;
 		const locked = yield* LockedService;
-		const alerts = yield* OtpAlerts;
 		const sessionStore = yield* OtpSessionStore;
 		const { decodeJson } = yield* CryptoService;
 		const { encodeJson } = yield* CryptoService;
@@ -68,7 +73,7 @@ export class OtpService extends Effect.Service<OtpService>()('OtpService', {
 				((code) => Effect.map(encodeJson({ code, gen: Date.now() }), (s) => ({ token: SealedToken.make(s), code })))(
 					(crypto.getRandomValues(new Uint32Array(1))[0]! % 10 ** otpCodeLen).toString().padStart(otpCodeLen, '0'),
 				),
-				({ code, token }) => Effect.as(alerts.sendVerificationCode(email, code), token),
+				({ code, token }) => Effect.as(sendVerificationCode(email, code), token),
 			);
 
 		return {

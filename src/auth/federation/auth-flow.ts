@@ -1,6 +1,6 @@
-import { Cause, Context, Effect, Schema } from 'effect';
+import { Cause, Context, Data, Effect, Schema } from 'effect';
 import { SessionService } from '@polumeyv/lib/server';
-import { redirect } from '@polumeyv/lib/error';
+import { redirect, type HttpStatusError } from '@polumeyv/lib/error';
 import {
 	authorizationCodeGrant,
 	AuthorizationResponseError,
@@ -12,11 +12,17 @@ import {
 	ResponseBodyError,
 } from 'openid-client';
 import { OAuthClaims, type OAuthResult } from './oidc.model';
-import { OAuthError } from '../errors';
 import { UserSub } from '../model';
 import { Email } from '@polumeyv/lib/public/types';
 import { OAuthProviderResolver } from './provider-resolver';
 import { OAuthAccountStore } from './account-store';
+
+/** Tagged error for the OIDC authorize-code flow (token exchange, ID-token claim validation, email verification). */
+export class OAuthFlowError extends Data.TaggedError('OAuthFlowError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
+	get statusCode() {
+		return 401 as const;
+	}
+}
 
 const OAuthSessionKey = (state: string) => `oauth:${state}`;
 const SignupKey = (uuid: string) => `oauth_signup:${uuid}`;
@@ -91,15 +97,15 @@ export class OidcAuthFlow extends Effect.Service<OidcAuthFlow>()('OidcAuthFlow',
 				const tokens = yield* Effect.tryPromise({
 					try: () => authorizationCodeGrant(config, callbackUrl, { expectedState: state, expectedNonce: nonce, pkceCodeVerifier: code_verifier }, { redirect_uri: redirect_uri ?? entry.redirectUri }),
 					catch: (e) =>
-						new OAuthError({
+						new OAuthFlowError({
 							cause: e,
 							message: e instanceof AuthorizationResponseError || e instanceof ResponseBodyError ? e.error_description || e.error : 'Token exchange failed',
 						}),
 				});
 
 				const claimsRaw = tokens.claims() as Record<string, unknown> | undefined;
-				if (!claimsRaw) return yield* new OAuthError({ message: 'No ID token claims returned' });
-				if (claimsRaw.email_verified === false) return yield* new OAuthError({ message: 'Email not verified by provider' });
+				if (!claimsRaw) return yield* new OAuthFlowError({ message: 'No ID token claims returned' });
+				if (claimsRaw.email_verified === false) return yield* new OAuthFlowError({ message: 'Email not verified by provider' });
 
 				// Normalize the wire shape (provider may omit fields entirely) to the internal `string | null` shape so
 				// downstream consumers don't each have to `?? null`. This is the single boundary where wire becomes storage shape.
@@ -110,7 +116,7 @@ export class OidcAuthFlow extends Effect.Service<OidcAuthFlow>()('OidcAuthFlow',
 					picture: claimsRaw.picture ?? null,
 					locale: claimsRaw.locale ?? null,
 				};
-				const claims = yield* Schema.decodeUnknown(OAuthClaims)(normalizedClaims).pipe(Effect.mapError((e) => new OAuthError({ cause: e, message: 'Invalid ID token claims' })));
+				const claims = yield* Schema.decodeUnknown(OAuthClaims)(normalizedClaims).pipe(Effect.mapError((e) => new OAuthFlowError({ cause: e, message: 'Invalid ID token claims' })));
 
 				return {
 					claims,

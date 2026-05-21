@@ -88,7 +88,17 @@ export type UpdateBookingSettings = typeof UpdateBookingSettingsS.Type;
 
 export const UpdateOnlineBookingS = Schema.partial(
 	BookingSettings.pipe(
-		Schema.pick('allow_online', 'max_advance_value', 'max_advance_in_hours', 'min_advance_value', 'min_advance_in_hours', 'buf', 'allow_walkins', 'auto_confirm', 'allow_reschedule'),
+		Schema.pick(
+			'allow_online',
+			'max_advance_value',
+			'max_advance_in_hours',
+			'min_advance_value',
+			'min_advance_in_hours',
+			'buf',
+			'allow_walkins',
+			'auto_confirm',
+			'allow_reschedule',
+		),
 	),
 );
 
@@ -122,10 +132,11 @@ type ResolveRoute<M extends string, P extends string> = {
 }[keyof BookingRoutes];
 
 export function makeBookingApi(opts: { baseUrl: string; getIdentityPath: () => string }) {
-	return async function bookingApi<P extends string, M extends 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET', R = ResolveRoute<M, P extends `${infer Path}?${string}` ? Path : P>>(
-		path: P,
-		fetchOpts?: { method?: M; body?: unknown },
-	): Promise<R> {
+	return async function bookingApi<
+		P extends string,
+		M extends 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET',
+		R = ResolveRoute<M, P extends `${infer Path}?${string}` ? Path : P>,
+	>(path: P, fetchOpts?: { method?: M; body?: unknown }): Promise<R> {
 		const identityPath = opts.getIdentityPath();
 
 		const res = await fetch(`${opts.baseUrl}${identityPath}${path}`, {

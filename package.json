@@ -60,6 +60,10 @@
       "types": "./src/booking/index.ts",
       "default": "./src/booking/index.ts"
     },
+    "./booking/utils": {
+      "types": "./src/booking/utils.ts",
+      "default": "./src/booking/utils.ts"
+    },
     "./public/types/db": {
       "types": "./src/public/types/db/index.ts",
       "default": "./src/public/types/db/index.ts"
@@ -71,10 +75,6 @@
     "./auth": {
       "types": "./src/auth/index.ts",
       "default": "./src/auth/index.ts"
-    },
-    "./auth/server": {
-      "types": "./src/auth/server.ts",
-      "default": "./src/auth/server.ts"
     },
     "./auth/passkey-client": {
       "types": "./src/auth/passkey/passkey.client.ts",

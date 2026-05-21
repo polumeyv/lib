@@ -14,7 +14,7 @@ Effect-based infrastructure + auth library for Bun applications. Each module exp
 - `session` — `push`/`peek`/`pop`/`delete` over Redis
 - `crypto` — `encryptSecret`/`decryptSecret` (AES-256-GCM, `enc:v1:` prefix)
 
-### Auth (`@polumeyv/lib/auth/server`)
+### Auth (`@polumeyv/lib/auth`)
 - `Jwt` + `JwtConfig` — Ed25519 JWT signing/verification, refresh-token rotation
 - `OtpService` + `OtpAlerts` — email-OTP flow with rate-limit + progressive lockout (decisions in `otp.policy`, glue in `otp.service`)
 - `PasskeyService` + `PasskeyConfig` — WebAuthn registration/authentication
@@ -47,7 +47,7 @@ import { Postgres, makePostgres, Redis, makeRedis, SessionService, Stripe, makeS
 import {
   AuthConfig, makeAuthConfig,
   OAuthProviderRegistry, OAuthAccountStore, OidcAuthFlow, OAuthTokenVault,
-} from '@polumeyv/lib/auth/server';
+} from '@polumeyv/lib/auth';
 
 const Live = Layer.provideMerge(
   Layer.mergeAll(

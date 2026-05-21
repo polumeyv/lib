@@ -10,11 +10,18 @@
  * Spec: https://developers.google.com/identity/protocols/risc
  */
 
-import { Context, Effect } from 'effect';
+import { Context, Data, Effect } from 'effect';
 import { Postgres } from '@polumeyv/lib/server';
+import type { HttpStatusError } from '@polumeyv/lib/error';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
-import { OAuthError } from '../errors';
 import { OAuthAccountStore } from './account-store';
+
+/** Tagged error for RISC (Cross-Account Protection) discovery + Security Event Token validation. */
+export class RiscError extends Data.TaggedError('RiscError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
+	get statusCode() {
+		return 401 as const;
+	}
+}
 
 const RISC_DISCOVERY = 'https://accounts.google.com/.well-known/risc-configuration';
 const GOOGLE_ISSUER = 'https://accounts.google.com/';
@@ -68,7 +75,7 @@ export class RiscService extends Effect.Service<RiscService>()('RiscService', {
 						jwks = createRemoteJWKSet(new URL(discovery.jwks_uri));
 						return { discovery, jwks };
 					},
-					catch: (e) => new OAuthError({ cause: e, message: 'RISC discovery failed' }),
+					catch: (e) => new RiscError({ cause: e, message: 'RISC discovery failed' }),
 				}),
 				({ discovery, jwks }) =>
 					Effect.tryPromise({
@@ -87,7 +94,7 @@ export class RiscService extends Effect.Service<RiscService>()('RiscService', {
 							if (!payload.events) throw new Error('Missing events claim');
 							return payload;
 						},
-						catch: (e) => new OAuthError({ cause: e, message: 'RISC token validation failed' }),
+						catch: (e) => new RiscError({ cause: e, message: 'RISC token validation failed' }),
 					}),
 			);
 
@@ -156,7 +163,7 @@ export class RiscService extends Effect.Service<RiscService>()('RiscService', {
 				{ discard: true },
 			);
 
-		return { process, verifyToken, dispatchToStore };
+		return { process, dispatchToStore };
 	}),
 	dependencies: [OAuthAccountStore.Default],
 }) {}

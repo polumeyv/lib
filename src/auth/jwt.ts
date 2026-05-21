@@ -1,9 +1,16 @@
 import { type JWTPayload, type JWK, SignJWT, jwtVerify, importJWK, decodeJwt } from 'jose';
-import { Context, Effect, Schema } from 'effect';
+import { Context, Data, Effect, Schema } from 'effect';
 import { SessionService } from '@polumeyv/lib/server';
+import type { HttpStatusError } from '@polumeyv/lib/error';
 
 import { AuthPayload } from './model';
-import { JwtError } from './errors';
+
+/** Tagged error for JWT operations (sign, verify, revoke, key import). */
+export class JwtError extends Data.TaggedError('JwtError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
+	get statusCode() {
+		return 401 as const;
+	}
+}
 
 const keyUtil = (key: JWK) =>
 	Effect.tryPromise({
@@ -62,11 +69,10 @@ export class Jwt extends Effect.Service<Jwt>()('Jwt', {
 
 		const signOAuth2 = (payload: JWTPayload, ttl: number, subject?: string) =>
 			Effect.tryPromise({
-				try: () => {
-					const jwt = new SignJWT(payload).setProtectedHeader({ alg: 'EdDSA' }).setIssuer(issuer).setIssuedAt().setExpirationTime(`${ttl}s`);
-					if (subject) jwt.setSubject(subject);
-					return jwt.sign(privateKey);
-				},
+				try: () =>
+					((jwt) => (subject ? jwt.setSubject(subject) : jwt).sign(privateKey))(
+						new SignJWT(payload).setProtectedHeader({ alg: 'EdDSA' }).setIssuer(issuer).setIssuedAt().setExpirationTime(`${ttl}s`),
+					),
 				catch: (e) => new JwtError({ cause: e }),
 			});
 
@@ -74,10 +80,7 @@ export class Jwt extends Effect.Service<Jwt>()('Jwt', {
 		// and carries the full AuthPayload so we can mint a new access JWT without a DB hit.
 		// Per OAuth 2.1 §1.3.2: "an identifier used to retrieve the authorization information".
 		const mintTokenPair = (payload: AuthPayload) =>
-			Effect.andThen(
-				Effect.sync(() => Bun.randomUUIDv7()),
-				(refresh) => Effect.map(Effect.zip(signAccess(payload), session.push(`refresh:${refresh}`, refreshTtl, payload)), ([access]) => ({ access, refresh })),
-			);
+			((refresh) => Effect.zipWith(signAccess(payload), session.push(`refresh:${refresh}`, refreshTtl, payload), (access) => ({ access, refresh })))(Bun.randomUUIDv7());
 
 		return {
 			verifyAccess,
@@ -89,14 +92,13 @@ export class Jwt extends Effect.Service<Jwt>()('Jwt', {
 			// token finds nothing in Redis and fails. No JWT decode, no signature check.
 			verifyRefresh: (token: string | undefined) =>
 				Effect.andThen(Effect.fromNullable(token), (t) =>
-					session.pop<AuthPayload>(`refresh:${t}`).pipe(
-						Effect.tapError(() => Effect.logWarning(`[jwt] refresh token rejected (revoked/expired/replayed) token=${t}`)),
-						Effect.andThen((payload) =>
-							mintTokenPair(payload).pipe(
-								Effect.tap(({ refresh }) => Effect.logInfo(`[jwt] tokens refreshed for ${payload.sub} new_refresh=${refresh}`)),
-								Effect.map((pair) => ({ ...pair, payload })),
+					Effect.andThen(
+						Effect.tapError(session.pop<AuthPayload>(`refresh:${t}`), () => Effect.logWarning(`[jwt] refresh token rejected (revoked/expired/replayed) token=${t}`)),
+						(payload) =>
+							Effect.map(
+								Effect.tap(mintTokenPair(payload), ({ refresh }) => Effect.logInfo(`[jwt] tokens refreshed for ${payload.sub} new_refresh=${refresh}`)),
+								(pair) => ({ ...pair, payload }),
 							),
-						),
 					),
 				),
 

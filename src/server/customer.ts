@@ -14,7 +14,7 @@ import { type Stripe } from 'stripe';
 import { PaymentMethod } from '../public/types';
 import { Postgres } from './postgres';
 import { Redis } from './redis';
-import { UserSub } from '../auth';
+import type { UserSub } from '../auth/model';
 import { invalid } from '@polumeyv/lib/error';
 import { StripeService } from './stripe';
 

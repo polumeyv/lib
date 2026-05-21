@@ -1,5 +1,36 @@
-import { Context, Effect } from 'effect';
-import { InvalidCode, UserLocked } from './otp/otp.model';
+import { Context, Data, Effect } from 'effect';
+import { ValidationError, type HttpStatusError } from '@polumeyv/lib/error';
+
+/**
+ * Tagged error for a wrong OTP code — user can retry. Subclasses `ValidationError` so the route
+ * boundary maps it to a form `invalid()` with no app-side branching. Construct via
+ * `LockedService.invalidCode(failed)` so the "X attempts remaining" copy stays consistent with the
+ * lockout ladder.
+ */
+export class InvalidCode extends ValidationError {
+	constructor(message: string) {
+		super({ message });
+	}
+}
+
+/**
+ * Tagged error for a locked account (timed or permanent). Carries `statusCode` 423 so the route
+ * boundary throws it as an HTTP error (not a form `invalid()`) — the client catches it, shows an
+ * alert dialog, and bounces back to sign-in. `remaining` (ms until unlock; `Number.MAX_SAFE_INTEGER`
+ * for a permanent lock) crosses the boundary via the `body` getter so the client can hold a lockout
+ * countdown and skip re-requesting with the same email while it's still active.
+ *
+ * Construct via `LockedService.userLocked(failed, failedAt)` / `LockedService.permLocked` — the
+ * service owns the duration ladder and renders the message + remaining for you.
+ */
+export class UserLocked extends Data.TaggedError('UserLocked')<{ readonly message: string; readonly remaining: number }> implements HttpStatusError {
+	readonly statusCode = 423 as const;
+
+	/** Wire shape forwarded as the HTTP error body at the route boundary. */
+	get body() {
+		return { message: this.message, remaining: this.remaining };
+	}
+}
 
 export class LockedConfig extends Context.Tag('LockedConfig')<
 	LockedConfig,
@@ -51,6 +82,6 @@ export class LockedService extends Effect.Service<LockedService>()('LockedServic
 
 		const failIfLocked = (failed: number, failedAt: number) => (isLocked(failed, failedAt) ? Effect.fail(userLocked(failed, failedAt)) : Effect.void);
 
-		return { isLocked, nextLock, userLocked, permLocked, invalidCode, failIfLocked };
+		return { nextLock, userLocked, permLocked, invalidCode, failIfLocked };
 	}),
 }) {}

@@ -1,9 +1,16 @@
-import { Effect } from 'effect';
+import { Data, Effect } from 'effect';
 import { refreshTokenGrant } from 'openid-client';
+import type { HttpStatusError } from '@polumeyv/lib/error';
 import type { UserSub } from '../model';
-import { OAuthError } from '../errors';
 import { OAuthAccountStore } from './account-store';
 import { OAuthProviderResolver } from './provider-resolver';
+
+/** Tagged error for OAuth refresh-token vault operations (missing refresh token, refresh grant failure). */
+export class OAuthTokenError extends Data.TaggedError('OAuthTokenError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
+	get statusCode() {
+		return 401 as const;
+	}
+}
 
 const REFRESH_THRESHOLD_MS = 60_000;
 
@@ -24,7 +31,7 @@ export class OAuthTokenVault extends Effect.Service<OAuthTokenVault>()('OAuthTok
 		const getValidAccessToken = (sub: typeof UserSub.Type, provider: string) =>
 			Effect.gen(function* () {
 				const account = yield* Effect.flatten(store.getBySub(sub, provider));
-				if (!account.refresh_token) return yield* Effect.fail(new OAuthError({ message: `Missing refresh_token for ${sub}/${provider}` }));
+				if (!account.refresh_token) return yield* Effect.fail(new OAuthTokenError({ message: `Missing refresh_token for ${sub}/${provider}` }));
 
 				// Cached token still has more than the refresh threshold of life — return it.
 				if (account.access_token && account.token_expires && account.token_expires.getTime() - Date.now() > REFRESH_THRESHOLD_MS) return account.access_token;
@@ -33,9 +40,9 @@ export class OAuthTokenVault extends Effect.Service<OAuthTokenVault>()('OAuthTok
 				const { config } = yield* resolver.resolve(provider);
 				const tokens = yield* Effect.tryPromise({
 					try: () => refreshTokenGrant(config, account.refresh_token!),
-					catch: (e) => new OAuthError({ cause: e, message: `Token refresh failed for ${sub}/${provider}` }),
+					catch: (e) => new OAuthTokenError({ cause: e, message: `Token refresh failed for ${sub}/${provider}` }),
 				});
-				if (!tokens.access_token) return yield* Effect.fail(new OAuthError({ message: `Provider returned no access_token on refresh for ${sub}/${provider}` }));
+				if (!tokens.access_token) return yield* Effect.fail(new OAuthTokenError({ message: `Provider returned no access_token on refresh for ${sub}/${provider}` }));
 				yield* store.replaceAccessToken(
 					sub,
 					provider,

@@ -1,9 +1,16 @@
 import { generateAuthenticationOptions, verifyAuthenticationResponse, generateRegistrationOptions, verifyRegistrationResponse } from '@simplewebauthn/server';
 import type { AuthenticationResponseJSON, RegistrationResponseJSON, CredentialDeviceType, AuthenticatorTransportFuture } from '@simplewebauthn/server';
-import { Context, Effect } from 'effect';
+import { Context, Data, Effect } from 'effect';
 import { Postgres, SessionService } from '@polumeyv/lib/server';
+import type { HttpStatusError } from '@polumeyv/lib/error';
 import { UserSub } from '../model';
-import { WebAuthnError } from '../errors';
+
+/** Tagged error for WebAuthn / passkey operations. */
+export class WebAuthnError extends Data.TaggedError('WebAuthnError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
+	get statusCode() {
+		return 400 as const;
+	}
+}
 
 const Key = (challengeId: string) => `webauthn:${challengeId}`;
 
