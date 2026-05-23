@@ -14,7 +14,7 @@ import { type Stripe } from 'stripe';
 import { PaymentMethod } from '../public/types';
 import { Postgres } from './postgres';
 import { Redis } from './redis';
-import type { UserSub } from '../auth/model';
+import type { UserSub } from '../user/model';
 import { invalid } from '@polumeyv/lib/error';
 import { StripeService } from './stripe';
 
@@ -47,7 +47,7 @@ export class StripeCustomerService extends Effect.Service<StripeCustomerService>
 				stripeCall((s) => s.promotionCodes.list({ code, active: true, limit: 1, expand: ['data.promotion.coupon'] })),
 				(promos) => {
 					const pc = promos.data[0];
-					const coupon = pc?.promotion.coupon;
+					const coupon = promos.data[0]?.promotion.coupon;
 					if (!pc || !coupon || typeof coupon === 'string') return invalid('Invalid promo code');
 					return Effect.succeed({ id: pc.id, name: coupon.name ?? code, percentOff: coupon.percent_off, amountOff: coupon.amount_off });
 				},
@@ -70,10 +70,9 @@ export class StripeCustomerService extends Effect.Service<StripeCustomerService>
 
 		const getCustomerFromDb = (sub: typeof UserSub.Type) =>
 			Effect.map(
-				pg.first((sql) => sql`SELECT stripe_cus_id, email FROM users WHERE sub = ${sub}`),
-				(row): Either.Either<string, string> => (row.stripe_cus_id ? Either.right(row.stripe_cus_id) : Either.left(row.email)),
+				pg.first((sql) => sql`SELECT stripe_cus_id, email FROM users WHERE sub = ${sub}`, { onNull: 'fail' }),
+				(row) => Either.fromNullable(row.stripe_cus_id, () => row.email),
 			);
-
 		const getCustomer = <U extends StripeCustomerUser>(user: U) =>
 			Effect.andThen(
 				redis.use((c) => c.get(`cus:${user.sub}`)),

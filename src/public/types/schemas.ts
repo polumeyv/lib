@@ -7,21 +7,21 @@ export const Domain = Schema.String.pipe(Schema.pattern(/^(?:[a-z0-9](?:[a-z0-9-
 export const getHostname = (url: string) => new URL(url.includes('://') ? url : `https://${url}`).hostname;
 
 export const Email = Schema.String.pipe(Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, { message: () => 'Please enter a valid email address' }));
+export type Email = typeof Email.Type;
 
 export const Phone = Schema.String.pipe(
-	Schema.length({ min: 7, max: 30 }, { message: () => 'Please enter a valid phone number' }),
+	Schema.pattern(/^\+[1-9]\d{1,14}$/, {
+		message: () => 'Please enter a valid phone number',
+	}),
+	Schema.brand('Phone'),
 );
+export type Phone = typeof Phone.Type;
 
 export const Name = (field: string) =>
-	Schema.String.pipe(
-		Schema.minLength(1, { message: () => `${field} is required` }),
-		Schema.maxLength(60, { message: () => `${field} must be less than 60 characters` }),
-	);
+	Schema.String.pipe(Schema.minLength(1, { message: () => `${field} is required` }), Schema.maxLength(60, { message: () => `${field} must be less than 60 characters` }));
 
-export const UserName = Schema.Struct({
-	f_name: Name('First name'),
-	l_name: Name('Last name'),
-});
+export const UserName = Schema.Struct({ f_name: Name('First name'), l_name: Name('Last name') });
+export type UserName = typeof UserName.Type;
 
 export const PaymentMethod = Schema.NullOr(
 	Schema.Struct({

@@ -1,7 +1,7 @@
 import { Data, Effect } from 'effect';
 import { refreshTokenGrant } from 'openid-client';
 import type { HttpStatusError } from '@polumeyv/lib/error';
-import type { UserSub } from '../model';
+import type { UserSub } from '../../user/model';
 import { OAuthAccountStore } from './account-store';
 import { OAuthProviderResolver } from './provider-resolver';
 

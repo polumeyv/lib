@@ -18,25 +18,17 @@ export class SessionService extends Effect.Service<SessionService>()('SessionSer
 
 		return {
 			/** Store session data under a key with TTL. */
-			push: <T>(key: string, ttl: number, data: T) => redis.use((c) => c.setex(key, ttl, JSON.stringify(data))),
-
-			/** Mint a fresh UUIDv7, push the data under `keyFn(id)` with TTL, return the id. */
-			pushFresh: <T>(keyFn: (id: string) => string, ttl: number, data: T) =>
-				((id) =>
-					Effect.as(
-						redis.use((c) => c.setex(keyFn(id), ttl, JSON.stringify(data))),
-						id,
-					))(Bun.randomUUIDv7()),
+			set: <T>(key: string, ttl: number, data: T) => redis.use((c) => c.setex(key, ttl, JSON.stringify(data))),
 
 			/** Read session without removing. Fails if missing. */
-			peek: <T = unknown>(key: string) =>
+			get: <T = unknown>(key: string) =>
 				Effect.flatMap(
 					redis.use((c) => c.get(key)),
 					(v) => (v ? Effect.succeed(JSON.parse(v) as T) : sessionExpired('Your session has expired, please try again')),
 				),
 
 			/** Read and remove session atomically. Fails if missing. */
-			pop: <T = unknown>(key: string) =>
+			take: <T = unknown>(key: string) =>
 				Effect.flatMap(
 					redis.use((c) => c.getdel(key)),
 					(v) => (v ? Effect.succeed(JSON.parse(v) as T) : sessionExpired('Your session has expired, please try again')),

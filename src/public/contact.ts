@@ -19,5 +19,9 @@ export const ContactS = Schema.mutable(
 		social_platform: Schema.Literal(...SOCIAL_PLATFORMS),
 		social: Schema.optional(Schema.String),
 	}),
+).pipe(
+	Schema.filter((d) => !!(d.email || d.phone), {
+		message: () => 'Please provide an email or phone number so we can reach you.',
+	}),
 );
 export type ContactData = typeof ContactS.Type;

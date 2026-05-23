@@ -35,6 +35,7 @@ export const ProBusinesses = Schema.Struct({
 	phone: Schema.optional(Schema.String),
 	email: Schema.optional(Schema.String),
 	status: Schema.Number,
+	tz: Schema.String, // us_timezone, e.g. "America/New_York"
 	verified_at: Schema.NullOr(Schema.DateFromSelf),
 	stripe_account_id: Schema.NullOr(Schema.String), // Stripe Connect account ID (acct_xxx)
 	platform_fee_bps: Schema.Number, // basis points withheld via application_fee_amount on destination charges

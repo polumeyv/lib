@@ -22,10 +22,11 @@ export class CryptoConfig extends Context.Tag('CryptoConfig')<CryptoConfig, { re
 export class CryptoService extends Effect.Service<CryptoService>()('CryptoService', {
 	effect: Effect.gen(function* () {
 		const { key: passphrase } = yield* CryptoConfig;
-		const aesKey = yield* Effect.promise(async () => {
-			const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(passphrase));
-			return crypto.subtle.importKey('raw', hash, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
-		});
+		const aesKey = yield* Effect.promise(() =>
+			crypto.subtle
+				.digest('SHA-256', new TextEncoder().encode(passphrase))
+				.then((hash) => crypto.subtle.importKey('raw', hash, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt'])),
+		);
 
 		// AES-GCM transform over a non-null string: ciphertext (Encoded) <-> plaintext (Type).
 		const StringCrypto = Schema.transformOrFail(Schema.String, Schema.String, {
@@ -57,15 +58,13 @@ export class CryptoService extends Effect.Service<CryptoService>()('CryptoServic
 		const Codec = Schema.NullOr(StringCrypto);
 		// JSON value <-> ciphertext: decrypt then `JSON.parse`, `JSON.stringify` then encrypt.
 		const JsonCodec = Schema.compose(StringCrypto, Schema.parseJson());
-
-		const decodeJsonCodec = Schema.decode(JsonCodec);
 		return {
 			encode: Schema.encode(Codec),
 			decode: Schema.decode(Codec),
 			encodeJson: Schema.encode(JsonCodec),
 			// Decryption is authenticated (AES-GCM tag) and the payload is one we encrypted ourselves,
 			// so the shape is guaranteed by construction — callers name it via the type parameter.
-			decodeJson: <T = unknown>(ciphertext: string) => decodeJsonCodec(ciphertext) as Effect.Effect<T, ParseResult.ParseError>,
+			decodeJson: <T = unknown>(ciphertext: string) => Schema.decode(JsonCodec)(ciphertext) as Effect.Effect<T, ParseResult.ParseError>,
 		};
 	}),
 }) {}

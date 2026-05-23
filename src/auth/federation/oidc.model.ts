@@ -28,7 +28,6 @@
  * | `scopes`        | `TEXT`         | Space-separated scopes granted by the provider.                   |
  */
 import { Schema } from 'effect';
-import { UserSub } from '../model';
 import { Email } from '@polumeyv/lib/public/types';
 
 export class OAuthClaims extends Schema.Class<OAuthClaims>('OAuthClaims')({
@@ -51,16 +50,3 @@ export const OAuthResult = Schema.Struct({
 });
 
 export type OAuthResult = typeof OAuthResult.Type;
-
-
-export const OidcAccount = Schema.Struct({
-	sub: UserSub,
-	provider: Schema.String,
-	subject: Schema.String,
-	email: Schema.NullOr(Schema.String),
-	locale: Schema.NullOr(Schema.String),
-	access_token: Schema.NullOr(Schema.String),
-	refresh_token: Schema.NullOr(Schema.String),
-	scopes: Schema.NullOr(Schema.String),
-});
-export type OidcAccount = typeof OidcAccount.Type;

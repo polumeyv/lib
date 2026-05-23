@@ -1,7 +1,7 @@
 import { Effect, Option } from 'effect';
 import { Postgres, CryptoService } from '@polumeyv/lib/server';
 import { Email } from '@polumeyv/lib/public/types';
-import { UserSub } from '../model';
+import { UserSub } from '../../user/model';
 import type { OAuthResult } from './oidc.model';
 
 export type OAuthAccountStatus = 'active' | 'revoked' | 'hijacked';
@@ -65,17 +65,25 @@ export class OAuthAccountStore extends Effect.Service<OAuthAccountStore>()('OAut
 					),
 				),
 
-			/** Find an account by user `sub`. With `provider`, narrows to that provider's active row (used by the token vault). Plaintext tokens. */
-			getBySub: (sub: typeof UserSub.Type, provider?: string) =>
+			/** Find the active `(sub, provider)` account with plaintext tokens. Used by the token vault. */
+			getBySub: (sub: typeof UserSub.Type, provider: string) =>
 				Effect.flatMap(
 					pg.first(
 						(sql) => sql<OAuthAccount[]>`
 							SELECT sub, provider, subject, email, locale, access_token, refresh_token, scopes, token_expires, status
-							FROM oidc_accounts WHERE sub = ${sub} ${provider ? sql`AND provider = ${provider} AND status = 'active'` : sql``}
+							FROM oidc_accounts WHERE sub = ${sub} AND provider = ${provider} AND status = 'active'
 						`,
 						{ onNull: 'option' },
 					),
 					(opt) => Effect.transposeOption(Option.map(opt, decryptRow)),
+				),
+
+			/** Lightweight linked-identity lookup — provider + email only, no token decryption. For UI display. */
+			getIdentityBySub: (sub: typeof UserSub.Type) =>
+				pg.first(
+					(sql) => sql<{ provider: string; email: string | null }[]>`
+						SELECT provider, email FROM oidc_accounts WHERE sub = ${sub}
+					`,
 				),
 
 			/**

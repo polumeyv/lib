@@ -25,18 +25,33 @@
  */
 import { Schema } from 'effect';
 import { type JWTPayload } from 'jose';
-import { Email } from '@polumeyv/lib/public/types';
+import { Email, Name, Phone } from '@polumeyv/lib/public/types';
 
-/** Branded UUID identifying a user. */
-export const UserSub = Schema.UUID.pipe(Schema.brand('UserSub'));
-
-const UserIdentity = Schema.Struct({ sub: UserSub, email: Email });
-
-export const BaseUser = Schema.Struct({
-	...UserIdentity.fields,
-	locked: Schema.Boolean,
+//DB table -- users
+export const UserTable = Schema.Struct({
+	sub: Schema.UUID.pipe(Schema.brand('UserSub')),
+	email: Email,
+	phone: Phone,
+	f_name: Name('First name'),
+	l_name: Name('Last name'),
+	stripe_cus_id: Schema.NullOr(Schema.String.pipe(Schema.maxLength(255))),
+	stripe_sub_id: Schema.NullOr(Schema.String.pipe(Schema.maxLength(255))),
+	stripe_acct_id: Schema.NullOr(Schema.String.pipe(Schema.maxLength(255))),
+	email_alerts: Schema.optionalWith(Schema.Boolean, { default: () => true }),
+	weekly_report: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+	marketing_emails: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+	locked: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+	referred_by: Schema.NullOr(Schema.UUID),
+	affiliate_earned: Schema.Int,
 	terms_acc: Schema.NullOr(Schema.DateFromSelf),
+	roles: Schema.Array(Schema.String),
+	plan: Schema.NullOr(Schema.String.pipe(Schema.maxLength(20))),
+	forwarding_urls: Schema.NullOr(Schema.Array(Schema.String)),
 });
+
+export { UserName } from '@polumeyv/lib/public/types';
+
+export const UserIdentity = UserTable.pick('sub', 'email');
 
 export const AuthPayload = Schema.Struct({
 	...UserIdentity.fields,
@@ -44,3 +59,6 @@ export const AuthPayload = Schema.Struct({
 });
 
 export type AuthPayload = typeof AuthPayload.Type & JWTPayload;
+
+export const UserSub = Schema.UUID.pipe(Schema.brand('UserSub'));
+export type UserSub = typeof UserSub.Type;

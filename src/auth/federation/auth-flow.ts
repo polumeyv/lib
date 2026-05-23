@@ -12,7 +12,7 @@ import {
 	ResponseBodyError,
 } from 'openid-client';
 import { OAuthClaims, type OAuthResult } from './oidc.model';
-import { UserSub } from '../model';
+import { UserSub } from '../../user/model';
 import { Email } from '@polumeyv/lib/public/types';
 import { OAuthProviderResolver } from './provider-resolver';
 import { OAuthAccountStore } from './account-store';
@@ -25,8 +25,7 @@ export class OAuthFlowError extends Data.TaggedError('OAuthFlowError')<{ cause?:
 }
 
 const OAuthSessionKey = (state: string) => `oauth:${state}`;
-const SignupKey = (uuid: string) => `oauth_signup:${uuid}`;
-const LinkingKey = (email: string) => `link_oidc:${email}`;
+export const LinkingKey = (email: string) => `link_oidc:${email}`;
 
 /** Parked OAuth-flow state pushed to Redis under `OAuthSessionKey(state)` while the user is at the IdP, popped when they come back to the callback. */
 interface OAuthFlowSession {
@@ -61,7 +60,7 @@ export class OidcAuthFlowConfig extends Context.Tag('OidcAuthFlowConfig')<
  */
 export class OidcAuthFlow extends Effect.Service<OidcAuthFlow>()('OidcAuthFlow', {
 	effect: Effect.gen(function* () {
-		const { oauthSessionTtl, oauthScopes, signupSessionTtl, oidcLinkSessionTtl } = yield* OidcAuthFlowConfig;
+		const { oauthSessionTtl, oauthScopes } = yield* OidcAuthFlowConfig;
 		const session = yield* SessionService;
 		const resolver = yield* OAuthProviderResolver;
 		const store = yield* OAuthAccountStore;
@@ -80,7 +79,7 @@ export class OidcAuthFlow extends Effect.Service<OidcAuthFlow>()('OidcAuthFlow',
 				const state = randomState();
 				const nonce = randomNonce();
 				const redirect_uri = redirectOverride ?? entry.redirectUri;
-				yield* session.push(OAuthSessionKey(state), oauthSessionTtl, { nonce, code_verifier, provider, redirect_uri } satisfies OAuthFlowSession);
+				yield* session.set(OAuthSessionKey(state), oauthSessionTtl, { nonce, code_verifier, provider, redirect_uri } satisfies OAuthFlowSession);
 				const code_challenge = yield* Effect.promise(() => calculatePKCECodeChallenge(code_verifier));
 				const url = buildAuthorizationUrl(config, { redirect_uri, scope: scopes, state, nonce, code_challenge, code_challenge_method: 'S256', ...extras });
 				return yield* redirect(url.toString(), 302);
@@ -91,11 +90,17 @@ export class OidcAuthFlow extends Effect.Service<OidcAuthFlow>()('OidcAuthFlow',
 				const state = callbackUrl.searchParams.get('state');
 				if (!state) return yield* new Cause.IllegalArgumentException('Missing state parameter in callback URL');
 
-				const { nonce, code_verifier, provider, redirect_uri } = yield* session.pop<OAuthFlowSession>(OAuthSessionKey(state));
+				const { nonce, code_verifier, provider, redirect_uri } = yield* session.take<OAuthFlowSession>(OAuthSessionKey(state));
 				const { config, entry } = yield* resolver.resolve(provider);
 
 				const tokens = yield* Effect.tryPromise({
-					try: () => authorizationCodeGrant(config, callbackUrl, { expectedState: state, expectedNonce: nonce, pkceCodeVerifier: code_verifier }, { redirect_uri: redirect_uri ?? entry.redirectUri }),
+					try: () =>
+						authorizationCodeGrant(
+							config,
+							callbackUrl,
+							{ expectedState: state, expectedNonce: nonce, pkceCodeVerifier: code_verifier },
+							{ redirect_uri: redirect_uri ?? entry.redirectUri },
+						),
 					catch: (e) =>
 						new OAuthFlowError({
 							cause: e,
@@ -116,7 +121,9 @@ export class OidcAuthFlow extends Effect.Service<OidcAuthFlow>()('OidcAuthFlow',
 					picture: claimsRaw.picture ?? null,
 					locale: claimsRaw.locale ?? null,
 				};
-				const claims = yield* Schema.decodeUnknown(OAuthClaims)(normalizedClaims).pipe(Effect.mapError((e) => new OAuthFlowError({ cause: e, message: 'Invalid ID token claims' })));
+				const claims = yield* Schema.decodeUnknown(OAuthClaims)(normalizedClaims).pipe(
+					Effect.mapError((e) => new OAuthFlowError({ cause: e, message: 'Invalid ID token claims' })),
+				);
 
 				return {
 					claims,
@@ -129,25 +136,15 @@ export class OidcAuthFlow extends Effect.Service<OidcAuthFlow>()('OidcAuthFlow',
 			});
 
 		/**
-		 * Persist a signup payload behind a fresh UUIDv7 token. Caller sets the token in a cookie
-		 * and the signup-completion handler retrieves the payload + creates the user + the OAuth account.
-		 */
-		const createSignupSession = (result: typeof OAuthResult.Type) => session.pushFresh(SignupKey, signupSessionTtl, result);
-
-		const createLinkingSession = (result: typeof OAuthResult.Type) => session.push(LinkingKey(result.claims.email), oidcLinkSessionTtl, result);
-
-		/**
 		 * Pop a parked linking session for `email` and persist the OAuth account against `sub`.
 		 * Used after a returning user verifies via OTP and we need to link the previously-attempted OAuth account.
 		 */
 		const linkAccount = (sub: typeof UserSub.Type, email: typeof Email.Type) =>
-			Effect.flatMap(session.pop<typeof OAuthResult.Type>(LinkingKey(email)), (r) => store.link(sub, r));
+			Effect.flatMap(session.take<typeof OAuthResult.Type>(LinkingKey(email)), (r) => store.link(sub, r));
 
 		return {
 			redirectToAuthUrl,
 			exchangeCode,
-			createSignupSession,
-			createLinkingSession,
 			linkAccount,
 		};
 	}),

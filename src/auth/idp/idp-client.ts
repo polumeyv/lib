@@ -1,6 +1,7 @@
 import { Data, Effect } from 'effect';
 import {
 	discovery,
+	allowInsecureRequests,
 	authorizationCodeGrant,
 	refreshTokenGrant,
 	tokenRevocation,
@@ -65,7 +66,16 @@ export function makeIdpClient({
 	/** Max-age in seconds for the tenant-side `refresh_token` cookie (default: 7 776 000 — 90 days, matches IdP OAuth2 refresh TTL). */
 	refreshCookieMaxAge?: number;
 }) {
-	const configPromise = discovery(new URL(`${publicAuthUrl}/.well-known/oauth-authorization-server`), clientId, clientSecret);
+	// HTTPS is enforced by oauth4webapi; in local dev the IdP is plain http://localhost, so opt into insecure
+	// requests for http URLs only. Prod URLs are https and stay strict.
+	const discoveryUrl = new URL(`${publicAuthUrl}/.well-known/oauth-authorization-server`);
+	const configPromise = discovery(
+		discoveryUrl,
+		clientId,
+		clientSecret,
+		undefined,
+		discoveryUrl.protocol === 'http:' ? { execute: [allowInsecureRequests] } : undefined,
+	);
 	const jwksPromise = configPromise.then((cfg) => createRemoteJWKSet(new URL(cfg.serverMetadata().jwks_uri!)));
 	const issuerPromise = configPromise.then((cfg) => cfg.serverMetadata().issuer);
 

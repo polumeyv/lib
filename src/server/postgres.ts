@@ -42,11 +42,10 @@
  *
  * This keeps Postgres → Bun → HTTP → client all speaking JSON end-to-end.
  */
-import { SQL } from 'bun';
+import type { SQL } from 'bun';
 import { Context, Data, Effect, Option } from 'effect';
 import type { NoSuchElementException } from 'effect/Cause';
 import type { HttpStatusError } from '@polumeyv/lib/error';
-import { makeUse } from './use';
 
 // Postgres SQLSTATE → HTTP status mapping. Specific codes override class-level defaults.
 // See https://www.postgresql.org/docs/current/errcodes-appendix.html.
@@ -91,7 +90,7 @@ const statusFromSqlState = (code: string | undefined): number => (code ? (SQLSTA
 
 const messageFromSqlState = (code: string | undefined): string => (code ? (SQLSTATE_TO_MESSAGE[code] ?? `Database error (${code})`) : 'Database error');
 
-class PostgresError extends Data.TaggedError('PostgresError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
+export class PostgresError extends Data.TaggedError('PostgresError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
 	constructor(args: { cause?: unknown; message?: string } = {}) {
 		super({ cause: args.cause, message: messageFromSqlState(sqlStateOf(args.cause)) });
 	}
@@ -103,51 +102,12 @@ class PostgresError extends Data.TaggedError('PostgresError')<{ cause?: unknown;
 	}
 }
 
-/**
- * Controls how `null`/`undefined` results from a single-row query are surfaced.
- * Omit the option to keep the raw nullable result (default).
- *  - `'fail'`   → unwraps to `NonNullable<T>`, failing with `NoSuchElementException` when missing.
- *  - `'option'` → wraps the result in `Option<NonNullable<T>>`.
- *
- * `applyOnNull` is the shared helper; any future single-row method on `Postgres`
- * should accept `{ onNull }` and route through it so the option behaves identically everywhere.
- */
-type OnNullMode = 'fail' | 'option';
+export interface PostgresImpl {
+	use: <T>(fn: (sql: SQL) => T) => Effect.Effect<Awaited<T>, PostgresError, never>;
 
-const applyOnNull = (eff: Effect.Effect<any, any, any>, mode: OnNullMode | undefined): Effect.Effect<any, any, any> => {
-	if (mode === 'fail') return Effect.flatMap(eff, Effect.fromNullable);
-	if (mode === 'option') return Effect.map(eff, Option.fromNullable);
-	return eff;
-};
-
-interface PostgresImpl {
-	use: <T>(fn: (sql: InstanceType<typeof SQL>) => T) => Effect.Effect<Awaited<T>, PostgresError, never>;
-
-	first<T extends any[]>(fn: (sql: InstanceType<typeof SQL>) => PromiseLike<T>): Effect.Effect<T[number], PostgresError, never>;
-	first<T extends any[]>(fn: (sql: InstanceType<typeof SQL>) => PromiseLike<T>, opts: { onNull: 'fail' }): Effect.Effect<NonNullable<T[number]>, PostgresError | NoSuchElementException, never>;
-	first<T extends any[]>(fn: (sql: InstanceType<typeof SQL>) => PromiseLike<T>, opts: { onNull: 'option' }): Effect.Effect<Option.Option<NonNullable<T[number]>>, PostgresError, never>;
+	first<T extends any[]>(fn: (sql: SQL) => PromiseLike<T>): Effect.Effect<T[number], PostgresError, never>;
+	first<T extends any[]>(fn: (sql: SQL) => PromiseLike<T>, opts: { onNull: 'fail' }): Effect.Effect<NonNullable<T[number]>, PostgresError | NoSuchElementException, never>;
+	first<T extends any[]>(fn: (sql: SQL) => PromiseLike<T>, opts: { onNull: 'option' }): Effect.Effect<Option.Option<NonNullable<T[number]>>, PostgresError, never>;
 }
 
 export class Postgres extends Context.Tag('Postgres')<Postgres, PostgresImpl>() {}
-
-export const makePostgres = (url: string) =>
-	Effect.map(
-		Effect.acquireRelease(
-			Effect.try({
-				try: () => new SQL(url, { idleTimeout: 10, max: 20 }),
-				catch: (e) => new PostgresError({ message: String(e), cause: e }),
-			}),
-			(sql) => Effect.promise(() => sql.close()),
-		),
-		(sql) => {
-			const impl: PostgresImpl = {
-				use: makeUse(sql, PostgresError, 'Postgres'),
-				first: ((fn: (sql: InstanceType<typeof SQL>) => PromiseLike<any>, opts?: { onNull?: OnNullMode }) =>
-					applyOnNull(
-						Effect.map(impl.use(fn), (rows) => rows[0]),
-						opts?.onNull,
-					)) as PostgresImpl['first'],
-			};
-			return Postgres.of(impl);
-		},
-	);
