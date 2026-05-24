@@ -44,7 +44,7 @@
  */
 import type { SQL } from 'bun';
 import { Context, Data, Effect, Option } from 'effect';
-import type { NoSuchElementException } from 'effect/Cause';
+import type { NoSuchElementError } from 'effect/Cause';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 
 // Postgres SQLSTATE → HTTP status mapping. Specific codes override class-level defaults.
@@ -106,8 +106,8 @@ export interface PostgresImpl {
 	use: <T>(fn: (sql: SQL) => T) => Effect.Effect<Awaited<T>, PostgresError, never>;
 
 	first<T extends any[]>(fn: (sql: SQL) => PromiseLike<T>): Effect.Effect<T[number], PostgresError, never>;
-	first<T extends any[]>(fn: (sql: SQL) => PromiseLike<T>, opts: { onNull: 'fail' }): Effect.Effect<NonNullable<T[number]>, PostgresError | NoSuchElementException, never>;
+	first<T extends any[]>(fn: (sql: SQL) => PromiseLike<T>, opts: { onNull: 'fail' }): Effect.Effect<NonNullable<T[number]>, PostgresError | NoSuchElementError, never>;
 	first<T extends any[]>(fn: (sql: SQL) => PromiseLike<T>, opts: { onNull: 'option' }): Effect.Effect<Option.Option<NonNullable<T[number]>>, PostgresError, never>;
 }
 
-export class Postgres extends Context.Tag('Postgres')<Postgres, PostgresImpl>() {}
+export class Postgres extends Context.Service<Postgres, PostgresImpl>()('Postgres') {}

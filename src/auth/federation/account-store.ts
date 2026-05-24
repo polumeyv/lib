@@ -1,4 +1,4 @@
-import { Effect, Option } from 'effect';
+import { Context, Effect, Layer, Option } from 'effect';
 import { Postgres, CryptoService } from '@polumeyv/lib/server';
 import { Email } from '@polumeyv/lib/public/types';
 import { UserSub } from '../../user/model';
@@ -29,8 +29,8 @@ export type OAuthAccount = {
  * at-rest encryption invariant inside the `EncryptedString` codec — callers
  * pass and receive plaintext tokens.
  */
-export class OAuthAccountStore extends Effect.Service<OAuthAccountStore>()('OAuthAccountStore', {
-	effect: Effect.gen(function* () {
+export class OAuthAccountStore extends Context.Service<OAuthAccountStore>()('OAuthAccountStore', {
+	make: Effect.gen(function* () {
 		const pg = yield* Postgres;
 		const { encode, decode } = yield* CryptoService;
 
@@ -75,7 +75,7 @@ export class OAuthAccountStore extends Effect.Service<OAuthAccountStore>()('OAut
 						`,
 						{ onNull: 'option' },
 					),
-					(opt) => Effect.transposeOption(Option.map(opt, decryptRow)),
+					(opt) => Option.match(opt, { onNone: () => Effect.succeedNone, onSome: (row) => Effect.asSome(decryptRow(row)) }),
 				),
 
 			/** Lightweight linked-identity lookup — provider + email only, no token decryption. For UI display. */
@@ -142,5 +142,6 @@ export class OAuthAccountStore extends Effect.Service<OAuthAccountStore>()('OAut
 			},
 		};
 	}),
-	dependencies: [CryptoService.Default],
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(CryptoService.layer));
+}

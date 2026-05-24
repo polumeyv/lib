@@ -8,7 +8,7 @@
  * ```ts
  * // app db.ts:
  * Layer.provideMerge(
- *     Layer.mergeAll(SmsService.Default, …),
+ *     Layer.mergeAll(SmsService.layer, …),
  *     Layer.succeed(SmsConfig, { apiKey, phoneNumber, messagingProfileId, enabled: !dev }),
  * );
  *
@@ -17,7 +17,7 @@
  * yield* sms.send({ to: '+15551234567', message: 'Hello!' });
  * ```
  */
-import { Context, Data, Effect } from 'effect';
+import { Context, Data, Effect, Layer } from 'effect';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 
 const TELNYX_API_URL = 'https://api.telnyx.com/v2/messages';
@@ -35,7 +35,7 @@ export const isOptOutMessage = (text: string): boolean => ['STOP', 'UNSUBSCRIBE'
 export const isOptInMessage = (text: string): boolean => ['START', 'SUBSCRIBE', 'YES', 'UNSTOP'].includes(text.trim().toUpperCase());
 
 /** App-provided Telnyx credentials. `enabled: false` short-circuits `send` to a log-and-noop (dev / tests). */
-export class SmsConfig extends Context.Tag('SmsConfig')<
+export class SmsConfig extends Context.Service<
 	SmsConfig,
 	{
 		readonly apiKey: string;
@@ -43,11 +43,11 @@ export class SmsConfig extends Context.Tag('SmsConfig')<
 		readonly messagingProfileId: string;
 		readonly enabled: boolean;
 	}
->() {}
+>()('SmsConfig') {}
 
 /** Effect-bridged Telnyx SMS sender. */
-export class SmsService extends Effect.Service<SmsService>()('SmsService', {
-	effect: Effect.gen(function* () {
+export class SmsService extends Context.Service<SmsService>()('SmsService', {
+	make: Effect.gen(function* () {
 		const config = yield* SmsConfig;
 
 		const send = ({ to, message }: { to: string; message: string }): Effect.Effect<{ success: boolean; messageId?: string }, SmsError> =>
@@ -78,4 +78,6 @@ export class SmsService extends Effect.Service<SmsService>()('SmsService', {
 
 		return { send };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

@@ -1,4 +1,4 @@
-import { Cause, Context, Data, Effect, Schema } from 'effect';
+import { Cause, Context, Data, Effect, Layer, Schema } from 'effect';
 import { SessionService } from '@polumeyv/lib/server';
 import { redirect, type HttpStatusError } from '@polumeyv/lib/error';
 import {
@@ -35,7 +35,7 @@ interface OAuthFlowSession {
 	readonly redirect_uri?: string;
 }
 
-export class OidcAuthFlowConfig extends Context.Tag('OidcAuthFlowConfig')<
+export class OidcAuthFlowConfig extends Context.Service<
 	OidcAuthFlowConfig,
 	{
 		/** TTL in seconds for PKCE OAuth sessions in Redis (default: 300 — 5 min). */
@@ -47,7 +47,7 @@ export class OidcAuthFlowConfig extends Context.Tag('OidcAuthFlowConfig')<
 		/** TTL in seconds for OIDC account-linking sessions in Redis (default: 600 — 10 min). */
 		readonly oidcLinkSessionTtl: number;
 	}
->() {}
+>()('OidcAuthFlowConfig') {}
 
 /**
  * OIDC sign-in / link / signup orchestration. Composes `OAuthProviderResolver`
@@ -58,8 +58,8 @@ export class OidcAuthFlowConfig extends Context.Tag('OidcAuthFlowConfig')<
  * Persistent storage of `oidc_accounts` rows lives in `OAuthAccountStore`;
  * this module only orchestrates the flow.
  */
-export class OidcAuthFlow extends Effect.Service<OidcAuthFlow>()('OidcAuthFlow', {
-	effect: Effect.gen(function* () {
+export class OidcAuthFlow extends Context.Service<OidcAuthFlow>()('OidcAuthFlow', {
+	make: Effect.gen(function* () {
 		const { oauthSessionTtl, oauthScopes } = yield* OidcAuthFlowConfig;
 		const session = yield* SessionService;
 		const resolver = yield* OAuthProviderResolver;
@@ -88,7 +88,7 @@ export class OidcAuthFlow extends Effect.Service<OidcAuthFlow>()('OidcAuthFlow',
 		const exchangeCode = (callbackUrl: URL) =>
 			Effect.gen(function* () {
 				const state = callbackUrl.searchParams.get('state');
-				if (!state) return yield* new Cause.IllegalArgumentException('Missing state parameter in callback URL');
+				if (!state) return yield* new Cause.IllegalArgumentError('Missing state parameter in callback URL');
 
 				const { nonce, code_verifier, provider, redirect_uri } = yield* session.take<OAuthFlowSession>(OAuthSessionKey(state));
 				const { config, entry } = yield* resolver.resolve(provider);
@@ -121,12 +121,8 @@ export class OidcAuthFlow extends Effect.Service<OidcAuthFlow>()('OidcAuthFlow',
 					picture: claimsRaw.picture ?? null,
 					locale: claimsRaw.locale ?? null,
 				};
-				const claims = yield* Schema.decodeUnknown(OAuthClaims)(normalizedClaims).pipe(
-					Effect.mapError((e) => new OAuthFlowError({ cause: e, message: 'Invalid ID token claims' })),
-				);
-
 				return {
-					claims,
+					claims: yield* Schema.decodeUnknownEffect(OAuthClaims)(normalizedClaims),
 					provider,
 					access_token: tokens.access_token,
 					scopes: tokens.scope ?? oauthScopes,
@@ -148,5 +144,6 @@ export class OidcAuthFlow extends Effect.Service<OidcAuthFlow>()('OidcAuthFlow',
 			linkAccount,
 		};
 	}),
-	dependencies: [OAuthProviderResolver.Default, OAuthAccountStore.Default],
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide([OAuthProviderResolver.layer, OAuthAccountStore.layer]));
+}

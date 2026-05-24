@@ -1,13 +1,15 @@
-import { Effect, Schema, Either } from 'effect';
+import { Context, Effect, Layer, Result, Schema } from 'effect';
 import { Postgres, Redis } from '@polumeyv/lib/server';
 import { Email } from '@polumeyv/lib/public/types';
-import { type UserSub, UserTable, AuthPayload, UserName } from './model';
+import { type UserSub, type AuthPayload, UserTable, UserName } from './model';
 
-const NameJson = Schema.parseJson(UserName);
+const NameJson = Schema.fromJsonString(UserName);
 const NAME_CACHE_TTL = 84_000;
 
-export class BaseUserRepository extends Effect.Service<BaseUserRepository>()('BaseUserRepository', {
-	effect: Effect.gen(function* () {
+type TermsAcc = Pick<AuthPayload, 'terms_acc'>
+
+export class BaseUserRepository extends Context.Service<BaseUserRepository>()('BaseUserRepository', {
+	make: Effect.gen(function* () {
 		const pg = yield* Postgres;
 		const redis = yield* Redis;
 
@@ -16,15 +18,15 @@ export class BaseUserRepository extends Effect.Service<BaseUserRepository>()('Ba
 				redis.use((c) => c.get(`name:${sub}`)),
 				(json) =>
 					json
-						? Schema.decode(NameJson)(json)
+						? Schema.decodeEffect(NameJson)(json)
 						: Effect.tap(
 								pg.first<[typeof UserName.Type]>((sql) => sql`SELECT f_name, l_name FROM users WHERE sub = ${sub}`, { onNull: 'fail' }),
-								(data) => Effect.andThen(Schema.encode(NameJson)(data), (encoded) => redis.use((c) => c.setex(`name:${sub}`, NAME_CACHE_TTL, encoded))),
+								(data) => Effect.andThen(Schema.encodeEffect(NameJson)(data), (encoded) => redis.use((c) => c.setex(`name:${sub}`, NAME_CACHE_TTL, encoded))),
 							),
 			);
 
 		const updateName = (sub: UserSub, data: typeof UserName.Type) =>
-			Effect.andThen(Schema.encode(NameJson)(data), (json) =>
+			Effect.andThen(Schema.encodeEffect(NameJson)(data), (json) =>
 				Effect.all([
 					pg.use((sql) => sql`UPDATE users SET ${sql(data, 'f_name', 'l_name')} WHERE sub = ${sub}`),
 					redis.use((c) => c.setex(`name:${sub}`, NAME_CACHE_TTL, json)),
@@ -35,24 +37,27 @@ export class BaseUserRepository extends Effect.Service<BaseUserRepository>()('Ba
 			getCustomerFromDb: (sub: UserSub) =>
 				Effect.map(
 					pg.first((sql) => sql`SELECT stripe_cus_id, email FROM users WHERE sub = ${sub}`, { onNull: 'fail' }),
-					(row) => Either.fromNullable(row.stripe_cus_id, () => row.email),
+					(row): Result.Result<string, string> => (row.stripe_cus_id != null ? Result.succeed(row.stripe_cus_id) : Result.fail(row.email)),
 				),
 			getName,
 			updateName,
-			/** Fetch the `AuthPayload` (identity + terms-accepted flag) for a `sub`. Fails `NoSuchElementException` if absent. */
+			/** Fetch the `AuthPayload` (identity + terms-accepted flag) for a `sub`. Fails `NoSuchElementError` if absent. */
 			getAuthPayload: (sub: UserSub) =>
-				pg.first<[typeof AuthPayload.Type]>((sql) => sql`SELECT sub, email, (terms_acc IS NOT NULL) AS terms_acc FROM users WHERE sub = ${sub}`, { onNull: 'fail' }),
+				pg.first<[AuthPayload]>((sql) => sql`SELECT sub, email, (terms_acc IS NOT NULL) AS terms_acc FROM users WHERE sub = ${sub}`, { onNull: 'fail' }),
 
 			getSubByEmail: (email: typeof Email.Type) =>
 				pg.first((sql) => sql<{ sub: typeof UserSub.Type; locked: boolean }[]>`SELECT sub, locked FROM users WHERE email = ${email}`),
 			getSubByEmailWithOidc: (email: typeof Email.Type) =>
 				pg.first(
-					(sql) => sql<{ sub: typeof UserSub.Type; locked: boolean; has_oidc: boolean }[]>`
-					SELECT u.sub, u.locked, oa.sub IS NOT NULL AS has_oidc
+					(sql) => sql<{ sub: typeof UserSub.Type; locked: boolean; has_oidc: boolean; terms_acc: boolean }[]>`
+					SELECT u.sub, u.locked, oa.sub IS NOT NULL AS has_oidc, u.terms_acc IS NOT NULL AS terms_acc
 					FROM users u LEFT JOIN oidc_accounts oa ON oa.sub = u.sub
 					WHERE u.email = ${email}
 				`,
 				),
+
+			getTermsAccepted: (sub: UserSub) =>
+				pg.first<[TermsAcc]>((sql) => sql`SELECT (terms_acc IS NOT NULL) AS terms_acc FROM users WHERE sub = ${sub}`, { onNull: 'fail' }),
 
 			lockUser: (sub: UserSub) => pg.use((sql) => sql`UPDATE users SET locked = TRUE WHERE sub = ${sub}`),
 			acceptTerms: (sub: UserSub) => pg.use((sql) => sql`UPDATE users SET terms_acc = NOW() WHERE sub = ${sub}`),
@@ -63,5 +68,6 @@ export class BaseUserRepository extends Effect.Service<BaseUserRepository>()('Ba
 				),
 		};
 	}),
-	dependencies: [],
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

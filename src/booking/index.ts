@@ -1,4 +1,4 @@
-import { Data, Schema } from 'effect';
+import { Data, Schema, Struct } from 'effect';
 import { BOOKING_STATUS, type BookingStatus } from '../public/types/db/pro.types';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 import { UserSub } from '../auth';
@@ -83,30 +83,32 @@ export const BookingSettings = Schema.Struct({
 });
 export type BookingSettings = typeof BookingSettings.Type;
 
-export const UpdateBookingSettingsS = Schema.partial(BookingSettings);
+export const UpdateBookingSettingsS = BookingSettings.mapFields(Struct.map(Schema.optional));
 export type UpdateBookingSettings = typeof UpdateBookingSettingsS.Type;
 
-export const UpdateOnlineBookingS = Schema.partial(
-	BookingSettings.pipe(
-		Schema.pick(
-			'allow_online',
-			'max_advance_value',
-			'max_advance_in_hours',
-			'min_advance_value',
-			'min_advance_in_hours',
-			'buf',
-			'allow_walkins',
-			'auto_confirm',
-			'allow_reschedule',
-		),
-	),
+export const UpdateOnlineBookingS = BookingSettings.mapFields(
+	Struct.pick([
+		'allow_online',
+		'max_advance_value',
+		'max_advance_in_hours',
+		'min_advance_value',
+		'min_advance_in_hours',
+		'buf',
+		'allow_walkins',
+		'auto_confirm',
+		'allow_reschedule',
+	]),
+).mapFields(Struct.map(Schema.optional));
+
+export const UpdateRemindersS = BookingSettings.mapFields(Struct.pick(['send_reminders', 'reminder_hours'])).mapFields(Struct.map(Schema.optional));
+
+export const UpdateDepositsS = BookingSettings.mapFields(Struct.pick(['require_payment', 'require_deposit', 'deposit_amount', 'deposit_is_fixed'])).mapFields(
+	Struct.map(Schema.optional),
 );
 
-export const UpdateRemindersS = Schema.partial(BookingSettings.pipe(Schema.pick('send_reminders', 'reminder_hours')));
-
-export const UpdateDepositsS = Schema.partial(BookingSettings.pipe(Schema.pick('require_payment', 'require_deposit', 'deposit_amount', 'deposit_is_fixed')));
-
-export const UpdateCancellationS = Schema.partial(BookingSettings.pipe(Schema.pick('allow_cancel', 'cancellation_deadline_hours', 'cancellation_policy')));
+export const UpdateCancellationS = BookingSettings.mapFields(Struct.pick(['allow_cancel', 'cancellation_deadline_hours', 'cancellation_policy'])).mapFields(
+	Struct.map(Schema.optional),
+);
 
 // ═══ API CLIENT ════════════════════════════════════════════════════════════
 

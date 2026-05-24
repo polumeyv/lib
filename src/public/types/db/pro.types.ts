@@ -1,25 +1,25 @@
-import { Schema } from 'effect';
+import { Schema, Struct } from 'effect';
 
 // Enums
-export const B_TYPE = Schema.Literal('salon', 'barbershop', 'spa', 'nails', 'esthetics', 'makeup', 'tattoo', 'other');
+export const B_TYPE = Schema.Literals(['salon', 'barbershop', 'spa', 'nails', 'esthetics', 'makeup', 'tattoo', 'other']);
 export type BType = typeof B_TYPE.Type;
 
-export const CLIENT_STATUS = Schema.Literal('active', 'inactive', 'vip', 'new', 'at_risk');
+export const CLIENT_STATUS = Schema.Literals(['active', 'inactive', 'vip', 'new', 'at_risk']);
 export type ClientStatus = typeof CLIENT_STATUS.Type;
 
-export const SERVICE_TYPE = Schema.Literal('service', 'addon');
+export const SERVICE_TYPE = Schema.Literals(['service', 'addon']);
 export type ServiceType = typeof SERVICE_TYPE.Type;
 
-export const AVAILABILITY_TYPE = Schema.Literal('recurring', 'specific_date', 'flexible', 'blocked');
+export const AVAILABILITY_TYPE = Schema.Literals(['recurring', 'specific_date', 'flexible', 'blocked']);
 export type AvailabilityType = typeof AVAILABILITY_TYPE.Type;
 
-export const BOOKING_STATUS = Schema.Literal('pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show');
+export const BOOKING_STATUS = Schema.Literals(['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show']);
 export type BookingStatus = typeof BOOKING_STATUS.Type;
 
-export const PAYOUT_SCHEDULE = Schema.Literal('daily', 'weekly', 'biweekly', 'monthly');
+export const PAYOUT_SCHEDULE = Schema.Literals(['daily', 'weekly', 'biweekly', 'monthly']);
 export type PayoutSchedule = typeof PAYOUT_SCHEDULE.Type;
 
-export const SERVICE_CATEGORY = Schema.Literal('haircut', 'color', 'styling', 'treatment', 'extension', 'nails', 'wax', 'facial', 'makeup', 'massage', 'other');
+export const SERVICE_CATEGORY = Schema.Literals(['haircut', 'color', 'styling', 'treatment', 'extension', 'nails', 'wax', 'facial', 'makeup', 'massage', 'other']);
 export type ServiceCategory = typeof SERVICE_CATEGORY.Type;
 
 // Business: identity + booking settings + financial settings (1:1 collapsed into one row)
@@ -27,16 +27,18 @@ export const ProBusinesses = Schema.Struct({
 	b_id: Schema.String,
 	owner_sub: Schema.String,
 	legal_name: Schema.String,
-	dba: Schema.optional(Schema.String),
+	dba: Schema.NullOr(Schema.String),
 	tax_id: Schema.NullOr(Schema.String),
 	license_number: Schema.NullOr(Schema.String),
 	b_type: B_TYPE,
-	website: Schema.optional(Schema.String),
-	phone: Schema.optional(Schema.String),
-	email: Schema.optional(Schema.String),
+	website: Schema.NullOr(Schema.String),
+	phone: Schema.NullOr(Schema.String),
+	email: Schema.NullOr(Schema.String),
 	status: Schema.Number,
 	tz: Schema.String, // us_timezone, e.g. "America/New_York"
-	verified_at: Schema.NullOr(Schema.DateFromSelf),
+	source: Schema.String,
+	listing_id: Schema.NullOr(Schema.String),
+	verified_at: Schema.NullOr(Schema.Date),
 	stripe_account_id: Schema.NullOr(Schema.String), // Stripe Connect account ID (acct_xxx)
 	platform_fee_bps: Schema.Number, // basis points withheld via application_fee_amount on destination charges
 	charges_enabled: Schema.Boolean, // cached from Stripe account.updated webhook
@@ -60,7 +62,7 @@ export const ProBusinesses = Schema.Struct({
 	min_advance_in_hours: Schema.Boolean,
 	buf: Schema.Number,
 	reminder_hours: Schema.Number,
-	cancellation_policy: Schema.optional(Schema.String),
+	cancellation_policy: Schema.NullOr(Schema.String),
 	// Financial settings
 	tax_enabled: Schema.Boolean,
 	tax_included: Schema.Boolean,
@@ -69,19 +71,21 @@ export const ProBusinesses = Schema.Struct({
 	refunds_enabled: Schema.Boolean,
 	refunds_partial: Schema.Boolean,
 	currency: Schema.String,
-	tax_rate: Schema.Number,
+	tax_rate: Schema.NumberFromString, // DECIMAL(5,3) — Bun returns numeric as string
 	tip_percentages: Schema.mutable(Schema.Array(Schema.Number)),
 	refund_deadline_days: Schema.Number,
 	refund_percentage: Schema.Number,
 	payout_schedule: PAYOUT_SCHEDULE,
 	minimum_payout: Schema.Number, // cents
-	updated: Schema.DateFromSelf,
+	updated: Schema.Date,
 });
+
+
 export type ProBusinessesType = typeof ProBusinesses.Type;
 
 /** Booking-settings subset of the merged businesses row (UI groups these on /settings/booking). */
-export const ProBookingSettings = ProBusinesses.pipe(
-	Schema.pick(
+export const ProBookingSettings = ProBusinesses.mapFields(
+	Struct.pick([
 		'b_id',
 		'allow_online',
 		'require_deposit',
@@ -102,13 +106,13 @@ export const ProBookingSettings = ProBusinesses.pipe(
 		'reminder_hours',
 		'cancellation_policy',
 		'updated',
-	),
+	]),
 );
 export type ProBookingSettingsType = typeof ProBookingSettings.Type;
 
 /** Financial-settings subset of the merged businesses row (UI groups these on /settings/financials). */
-export const ProFinancialSettings = ProBusinesses.pipe(
-	Schema.pick(
+export const ProFinancialSettings = ProBusinesses.mapFields(
+	Struct.pick([
 		'b_id',
 		'tax_enabled',
 		'tax_included',
@@ -124,12 +128,12 @@ export const ProFinancialSettings = ProBusinesses.pipe(
 		'payout_schedule',
 		'minimum_payout',
 		'updated',
-	),
+	]),
 );
 export type ProFinancialSettingsType = typeof ProFinancialSettings.Type;
 
 export const ProAddresses = Schema.Struct({
-	id: Schema.UUID,
+	id: Schema.String.check(Schema.isUUID()),
 	owner_id: Schema.String,
 	address_type: Schema.String,
 	street: Schema.String,
@@ -141,8 +145,8 @@ export const ProAddresses = Schema.Struct({
 	name: Schema.NullOr(Schema.String),
 	icon: Schema.String,
 	is_default: Schema.Boolean,
-	coord: Schema.NullOr(Schema.Tuple(Schema.Number, Schema.Number)), // [lat, lng]
-	updated: Schema.DateFromSelf,
+	coord: Schema.NullOr(Schema.Tuple([Schema.Number, Schema.Number])), // [lat, lng]
+	updated: Schema.Date,
 });
 export type ProAddressesType = typeof ProAddresses.Type;
 
@@ -155,7 +159,7 @@ export const ProHours = Schema.Struct({
 	closed: Schema.Boolean,
 	break_start: Schema.NullOr(Schema.String),
 	break_end: Schema.NullOr(Schema.String),
-	updated: Schema.DateFromSelf,
+	updated: Schema.Date,
 });
 export type ProHoursType = typeof ProHours.Type;
 
@@ -171,7 +175,7 @@ export const ProServices = Schema.Struct({
 	dur: Schema.Number,
 	buf: Schema.NullOr(Schema.Number),
 	active: Schema.Boolean,
-	updated: Schema.DateFromSelf,
+	updated: Schema.Date,
 });
 export type ProServicesType = typeof ProServices.Type;
 
@@ -188,7 +192,7 @@ export const ProClients = Schema.Struct({
 	status: CLIENT_STATUS,
 	notes: Schema.optional(Schema.String),
 	tags: Schema.optional(Schema.Array(Schema.String)),
-	updated: Schema.DateFromSelf,
+	updated: Schema.Date,
 });
 export type ProClientsType = typeof ProClients.Type;
 
@@ -207,20 +211,22 @@ export const ProBookings = Schema.Struct({
 	notes: Schema.NullOr(Schema.String),
 	cancellation_reason: Schema.NullOr(Schema.String),
 	cancelled_by: Schema.NullOr(Schema.String),
-	cancelled: Schema.NullOr(Schema.DateFromSelf),
-	completed: Schema.NullOr(Schema.DateFromSelf),
+	cancelled: Schema.NullOr(Schema.Date),
+	completed: Schema.NullOr(Schema.Date),
 	payment_intent_id: Schema.NullOr(Schema.String),
 	payment_status: Schema.String, // 'none' | Stripe PI status | 'refunded' | 'disputed'
 	platform_fee_amount: Schema.NullOr(Schema.Number), // cents
 	transfer_id: Schema.NullOr(Schema.String),
-	updated: Schema.DateFromSelf,
+	updated: Schema.Date,
 });
 export type ProBookingsType = typeof ProBookings.Type;
 
-export const ProBookingsView = Schema.extend(ProBookings, Schema.Struct({
-	start_time: Schema.String,
-	dur: Schema.NullOr(Schema.Number),
-}));
+export const ProBookingsView = ProBookings.pipe(
+	Schema.fieldsAssign({
+		start_time: Schema.String,
+		dur: Schema.NullOr(Schema.Number),
+	}),
+);
 export type ProBookingsViewType = typeof ProBookingsView.Type;
 
 export const ProStripeCustomers = Schema.Struct({
@@ -228,4 +234,3 @@ export const ProStripeCustomers = Schema.Struct({
 	stripe_customer_id: Schema.String,
 });
 export type ProStripeCustomersType = typeof ProStripeCustomers.Type;
-

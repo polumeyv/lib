@@ -32,4 +32,4 @@ interface S3Impl {
 	use: <T>(fn: (client: S3Client) => T) => Effect.Effect<Awaited<T>, S3Error, never>;
 }
 
-export class S3 extends Context.Tag('S3')<S3, S3Impl>() {}
+export class S3 extends Context.Service<S3, S3Impl>()('S3') {}

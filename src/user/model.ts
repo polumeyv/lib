@@ -23,42 +23,44 @@
  * | `locked`       | `BOOLEAN`     | When `true`, the account is locked and OTP verification is denied. |
  * | `terms_acc` | `TIMESTAMPTZ` | When non-null, the user has accepted the terms of service.         |
  */
-import { Schema } from 'effect';
+import { Effect, Schema, Struct } from 'effect';
 import { type JWTPayload } from 'jose';
 import { Email, Name, Phone } from '@polumeyv/lib/public/types';
 
+const Uuid = Schema.String.check(Schema.isUUID());
+
 //DB table -- users
 export const UserTable = Schema.Struct({
-	sub: Schema.UUID.pipe(Schema.brand('UserSub')),
+	sub: Uuid.pipe(Schema.brand('UserSub')),
 	email: Email,
 	phone: Phone,
 	f_name: Name('First name'),
 	l_name: Name('Last name'),
-	stripe_cus_id: Schema.NullOr(Schema.String.pipe(Schema.maxLength(255))),
-	stripe_sub_id: Schema.NullOr(Schema.String.pipe(Schema.maxLength(255))),
-	stripe_acct_id: Schema.NullOr(Schema.String.pipe(Schema.maxLength(255))),
-	email_alerts: Schema.optionalWith(Schema.Boolean, { default: () => true }),
-	weekly_report: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-	marketing_emails: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-	locked: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-	referred_by: Schema.NullOr(Schema.UUID),
+	stripe_cus_id: Schema.NullOr(Schema.String.check(Schema.isMaxLength(255))),
+	stripe_sub_id: Schema.NullOr(Schema.String.check(Schema.isMaxLength(255))),
+	stripe_acct_id: Schema.NullOr(Schema.String.check(Schema.isMaxLength(255))),
+	email_alerts: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(true))),
+	weekly_report: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(false))),
+	marketing_emails: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(false))),
+	locked: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(false))),
+	referred_by: Schema.NullOr(Uuid),
 	affiliate_earned: Schema.Int,
-	terms_acc: Schema.NullOr(Schema.DateFromSelf),
+	terms_acc: Schema.NullOr(Schema.Date),
 	roles: Schema.Array(Schema.String),
-	plan: Schema.NullOr(Schema.String.pipe(Schema.maxLength(20))),
+	plan: Schema.NullOr(Schema.String.check(Schema.isMaxLength(20))),
 	forwarding_urls: Schema.NullOr(Schema.Array(Schema.String)),
 });
 
 export { UserName } from '@polumeyv/lib/public/types';
 
-export const UserIdentity = UserTable.pick('sub', 'email');
+export const UserIdentity = UserTable.mapFields(Struct.pick(['sub', 'email']));
 
 export const AuthPayload = Schema.Struct({
 	...UserIdentity.fields,
 	terms_acc: Schema.Boolean,
 });
 
-export type AuthPayload = typeof AuthPayload.Type & JWTPayload;
+export type AuthPayload = typeof AuthPayload.Type;
 
-export const UserSub = Schema.UUID.pipe(Schema.brand('UserSub'));
+export const UserSub = Uuid.pipe(Schema.brand('UserSub'));
 export type UserSub = typeof UserSub.Type;

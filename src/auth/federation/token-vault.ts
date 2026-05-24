@@ -1,4 +1,4 @@
-import { Data, Effect } from 'effect';
+import { Context, Data, Effect, Layer } from 'effect';
 import { refreshTokenGrant } from 'openid-client';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 import type { UserSub } from '../../user/model';
@@ -23,14 +23,14 @@ const REFRESH_THRESHOLD_MS = 60_000;
  * Replaces the hand-rolled token-refresh logic that calendar-sync used to
  * maintain (loadTokens / refreshGoogleToken / saveAccessToken / ensureAccessToken).
  */
-export class OAuthTokenVault extends Effect.Service<OAuthTokenVault>()('OAuthTokenVault', {
-	effect: Effect.gen(function* () {
+export class OAuthTokenVault extends Context.Service<OAuthTokenVault>()('OAuthTokenVault', {
+	make: Effect.gen(function* () {
 		const store = yield* OAuthAccountStore;
 		const resolver = yield* OAuthProviderResolver;
 
 		const getValidAccessToken = (sub: typeof UserSub.Type, provider: string) =>
 			Effect.gen(function* () {
-				const account = yield* Effect.flatten(store.getBySub(sub, provider));
+				const account = yield* Effect.flatMap(store.getBySub(sub, provider), Effect.fromOption);
 				if (!account.refresh_token) return yield* Effect.fail(new OAuthTokenError({ message: `Missing refresh_token for ${sub}/${provider}` }));
 
 				// Cached token still has more than the refresh threshold of life — return it.
@@ -54,5 +54,6 @@ export class OAuthTokenVault extends Effect.Service<OAuthTokenVault>()('OAuthTok
 
 		return { getValidAccessToken };
 	}),
-	dependencies: [OAuthAccountStore.Default, OAuthProviderResolver.Default],
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide([OAuthAccountStore.layer, OAuthProviderResolver.layer]));
+}

@@ -42,7 +42,7 @@ export class RedisError extends Data.TaggedError('RedisError')<{ cause?: unknown
 
 export interface CacheOptions<Id, A, LE, LR, SA, SE, SR> {
 	key: (id: Id) => string;
-	codec: Schema.Schema<A, string>; // Type A ↔ Encoded string, e.g. Schema.parseJson(Inner)
+	codec: Schema.Codec<A, string>; // Type A ↔ Encoded string, e.g. Schema.fromJsonString(Inner)
 	ttl: number;
 	load: (id: Id) => Effect.Effect<A, LE, LR>;
 	save: (id: Id, value: A) => Effect.Effect<SA, SE, SR>;
@@ -58,4 +58,4 @@ export interface RedisImpl {
 	cache: <Id, A, LE, LR, SA, SE, SR>(opts: CacheOptions<Id, A, LE, LR, SA, SE, SR>) => Cache<Id, A, LE, LR, SE, SR>;
 }
 
-export class Redis extends Context.Tag('Redis')<Redis, RedisImpl>() {}
+export class Redis extends Context.Service<Redis, RedisImpl>()('Redis') {}

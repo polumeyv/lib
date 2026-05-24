@@ -9,7 +9,7 @@
  * ```ts
  * // app db.ts:
  * Layer.provideMerge(
- *     Layer.mergeAll(StripeService.Default, BaseUserRepository.Default, …),
+ *     Layer.mergeAll(StripeService.layer, BaseUserRepository.layer, …),
  *     Layer.succeed(StripeConfig, { secretKey: STRIPE_SECRET_KEY, apiVersion: '2026-04-22.dahlia', webhookSecret: STRIPE_WEBHOOK_SECRET }),
  * );
  *
@@ -20,7 +20,7 @@
  * ```
  */
 import StripeSDK from 'stripe';
-import { Context, Data, Effect } from 'effect';
+import { Context, Data, Effect, Layer } from 'effect';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 
 type StripeSDKError = InstanceType<typeof StripeSDK.errors.StripeError>;
@@ -36,22 +36,22 @@ export class StripeError extends Data.TaggedError('StripeError')<{ err: StripeSD
 }
 
 /** App-provided Stripe credentials. `webhookSecret` is required only by apps that handle inbound Stripe webhooks. */
-export class StripeConfig extends Context.Tag('StripeConfig')<
+export class StripeConfig extends Context.Service<
 	StripeConfig,
 	{
 		readonly secretKey: string;
 		readonly apiVersion?: string;
 		readonly webhookSecret?: string;
 	}
->() {}
+>()('StripeConfig') {}
 
 /**
  * Effect-bridged Stripe SDK service. Apps provide `StripeConfig` and add
- * `StripeService.Default` to their layer; consumers `yield* StripeService` to
+ * `StripeService.layer` to their layer; consumers `yield* StripeService` to
  * get `{ stripe, call, verifyWebhook }`.
  */
-export class StripeService extends Effect.Service<StripeService>()('StripeService', {
-	effect: Effect.gen(function* () {
+export class StripeService extends Context.Service<StripeService>()('StripeService', {
+	make: Effect.gen(function* () {
 		const config = yield* StripeConfig;
 		// apiVersion typing is a literal union per Stripe SDK release; runtime accepts any string the API understands.
 		const stripe = new StripeSDK(config.secretKey, config.apiVersion ? { apiVersion: config.apiVersion as typeof StripeSDK.API_VERSION } : undefined);
@@ -72,4 +72,6 @@ export class StripeService extends Effect.Service<StripeService>()('StripeServic
 
 		return { stripe, call, verifyWebhook };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

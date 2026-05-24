@@ -111,7 +111,7 @@ export function makeIdpClient({
 		/** Verify an OAuth2 access token against the IdP's discovered JWKS endpoint. Fails if missing, invalid, or within `bufferSeconds` of expiry (default 60s). */
 		verifyAccessToken: <T extends JWTPayload = JWTPayload>(token: string | null | undefined, bufferSeconds = 60) =>
 			Effect.andThen(
-				Effect.mapError(Effect.fromNullable(token), () => new IdpClientError({ message: 'Missing access token' })),
+				Effect.mapError(Effect.fromNullishOr(token), () => new IdpClientError({ message: 'Missing access token' })),
 				(t) =>
 					Effect.tryPromise({
 						try: async (): Promise<T> => {

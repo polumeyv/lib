@@ -10,7 +10,7 @@
  * Spec: https://developers.google.com/identity/protocols/risc
  */
 
-import { Context, Data, Effect } from 'effect';
+import { Context, Data, Effect, Layer } from 'effect';
 import { Postgres } from '@polumeyv/lib/server';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
@@ -50,10 +50,10 @@ export type RiscEvent = {
 	state?: string;
 };
 
-export class RiscConfig extends Context.Tag('RiscConfig')<RiscConfig, { audiences: readonly string[] }>() {}
+export class RiscConfig extends Context.Service<RiscConfig, { audiences: readonly string[] }>()('RiscConfig') {}
 
-export class RiscService extends Effect.Service<RiscService>()('RiscService', {
-	effect: Effect.gen(function* () {
+export class RiscService extends Context.Service<RiscService>()('RiscService', {
+	make: Effect.gen(function* () {
 		const { audiences } = yield* RiscConfig;
 		const pg = yield* Postgres;
 		const store = yield* OAuthAccountStore;
@@ -165,5 +165,6 @@ export class RiscService extends Effect.Service<RiscService>()('RiscService', {
 
 		return { process, dispatchToStore };
 	}),
-	dependencies: [OAuthAccountStore.Default],
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(OAuthAccountStore.layer));
+}

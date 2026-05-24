@@ -1,4 +1,4 @@
-import { Context, Data, Effect } from 'effect';
+import { Context, Data, Effect, Layer } from 'effect';
 import { discovery, type Configuration } from 'openid-client';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 
@@ -18,20 +18,20 @@ export interface OAuthProviderEntry {
 }
 
 /** Registered OAuth/OIDC providers keyed by provider name (e.g. 'google'). Consumed by `OAuthProviderResolver`. */
-export class OAuthProviderResolverConfig extends Context.Tag('OAuthProviderResolverConfig')<OAuthProviderResolverConfig, Map<string, OAuthProviderEntry>>() {}
+export class OAuthProviderResolverConfig extends Context.Service<OAuthProviderResolverConfig, Map<string, OAuthProviderEntry>>()('OAuthProviderResolverConfig') {}
 
 /**
  * Resolves a provider name to its registered config + a cached `openid-client`
  * `Configuration` (fetched once via OIDC discovery, then memoised on the entry). Shared by
  * `OidcAuthFlow` (build URL, exchange code) and `OAuthTokenVault` (refresh).
  */
-export class OAuthProviderResolver extends Effect.Service<OAuthProviderResolver>()('OAuthProviderResolver', {
-	effect: Effect.gen(function* () {
+export class OAuthProviderResolver extends Context.Service<OAuthProviderResolver>()('OAuthProviderResolver', {
+	make: Effect.gen(function* () {
 		const providers = yield* OAuthProviderResolverConfig;
 
 		const resolve = (provider: string) =>
 			Effect.flatMap(
-				Effect.mapError(Effect.fromNullable(providers.get(provider)), () => new OAuthProviderError({ message: `Unknown OAuth provider: ${provider}` })),
+				Effect.mapError(Effect.fromNullishOr(providers.get(provider)), () => new OAuthProviderError({ message: `Unknown OAuth provider: ${provider}` })),
 				(entry) => {
 					if (entry.config) return Effect.succeed({ config: entry.config, entry });
 					return Effect.map(
@@ -49,4 +49,6 @@ export class OAuthProviderResolver extends Effect.Service<OAuthProviderResolver>
 
 		return { resolve };
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

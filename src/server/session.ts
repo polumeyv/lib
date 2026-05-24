@@ -1,4 +1,4 @@
-import { Data, Effect } from 'effect';
+import { Context, Data, Effect, Layer } from 'effect';
 import { Redis } from './redis';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 
@@ -12,8 +12,8 @@ export class SessionExpiredError extends Data.TaggedError('SessionExpiredError')
 /** Fail an Effect with a 401 session-expired error. */
 export const sessionExpired = (message: string = 'Your session has expired') => Effect.fail(new SessionExpiredError({ message }));
 
-export class SessionService extends Effect.Service<SessionService>()('SessionService', {
-	effect: Effect.gen(function* () {
+export class SessionService extends Context.Service<SessionService>()('SessionService', {
+	make: Effect.gen(function* () {
 		const redis = yield* Redis;
 
 		return {
@@ -38,5 +38,6 @@ export class SessionService extends Effect.Service<SessionService>()('SessionSer
 			delete: (key: string) => redis.use((c) => c.unlink(key)),
 		};
 	}),
-	dependencies: [],
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

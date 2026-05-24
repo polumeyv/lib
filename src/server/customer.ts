@@ -1,7 +1,7 @@
 /**
  * Stripe customer service — shared by polumeyv-auth and cresends-dashboard.
  *
- * Each app extends this in its own Effect.Service to layer on app-specific
+ * Each app extends this in its own Context.Service to layer on app-specific
  * methods (cookie writes, billing portal returns).
  *
  * Assumes a `users` table with `sub` (UUID), `stripe_cus_id` (nullable string),
@@ -9,7 +9,7 @@
  * a sentinel value `0` recording a temporary Stripe outage to avoid retry storms.
  */
 
-import { Cause, Effect, Schema, Either } from 'effect';
+import { Cause, Context, Effect, Layer, Result, Schema } from 'effect';
 import { type Stripe } from 'stripe';
 import { PaymentMethod } from '../public/types';
 import { Postgres } from './postgres';
@@ -18,7 +18,7 @@ import type { UserSub } from '../user/model';
 import { invalid } from '@polumeyv/lib/error';
 import { StripeService } from './stripe';
 
-export const CachedCustomer = Schema.parseJson(Schema.Struct({ id: Schema.String, pm: PaymentMethod }));
+export const CachedCustomer = Schema.fromJsonString(Schema.Struct({ id: Schema.String, pm: PaymentMethod }));
 
 export type StripeCustomerUser = { sub: typeof UserSub.Type; email: string };
 
@@ -31,8 +31,8 @@ const extractCustomer = (c: Stripe.Customer | Stripe.DeletedCustomer) => ({
 		: ((pm) => (pm && typeof pm !== 'string' && pm.card ? { brand: pm.card.brand, last4: pm.card.last4 } : null))(c.invoice_settings?.default_payment_method),
 });
 
-export class StripeCustomerService extends Effect.Service<StripeCustomerService>()('StripeCustomerService', {
-	effect: Effect.gen(function* () {
+export class StripeCustomerService extends Context.Service<StripeCustomerService>()('StripeCustomerService', {
+	make: Effect.gen(function* () {
 		const pg = yield* Postgres;
 		const redis = yield* Redis;
 		const { call: stripeCall } = yield* StripeService;
@@ -40,7 +40,7 @@ export class StripeCustomerService extends Effect.Service<StripeCustomerService>
 		const cacheRaw = (sub: typeof UserSub.Type, value: string | null) => redis.use((c) => c.setex(`cus:${sub}`, CACHE_TTL, value ?? '0'));
 
 		const cacheCustomer = (sub: typeof UserSub.Type, data: typeof CachedCustomer.Type) =>
-			Effect.andThen(Schema.encode(CachedCustomer)(data), (json) => redis.use((c) => c.setex(`cus:${sub}`, CACHE_TTL, json)));
+			Effect.andThen(Schema.encodeEffect(CachedCustomer)(data), (json) => redis.use((c) => c.setex(`cus:${sub}`, CACHE_TTL, json)));
 
 		const validateCoupon = (code: string) =>
 			Effect.flatMap(
@@ -61,9 +61,9 @@ export class StripeCustomerService extends Effect.Service<StripeCustomerService>
 						Effect.as(Effect.all([pg.use((sql) => sql`UPDATE users SET stripe_cus_id = ${c.id} WHERE sub = ${user.sub}`), cacheCustomer(user.sub, data)]), data))(),
 			).pipe(
 				Effect.catchTag('StripeError', (e) =>
-					Effect.zipRight(
+					Effect.andThen(
 						Effect.all([Effect.logWarning('[CustomerService] customer creation failed', e), cacheRaw(user.sub, null)]),
-						Effect.fail(new Cause.NoSuchElementException('Our payment provider was temporarily unavailable — please try again shortly.')),
+						Effect.fail(new Cause.NoSuchElementError('Our payment provider was temporarily unavailable — please try again shortly.')),
 					),
 				),
 			);
@@ -71,28 +71,24 @@ export class StripeCustomerService extends Effect.Service<StripeCustomerService>
 		const getCustomerFromDb = (sub: typeof UserSub.Type) =>
 			Effect.map(
 				pg.first((sql) => sql`SELECT stripe_cus_id, email FROM users WHERE sub = ${sub}`, { onNull: 'fail' }),
-				(row) => Either.fromNullable(row.stripe_cus_id, () => row.email),
+				(row): Result.Result<string, string> => (row.stripe_cus_id != null ? Result.succeed(row.stripe_cus_id) : Result.fail(row.email)),
 			);
 		const getCustomer = <U extends StripeCustomerUser>(user: U) =>
-			Effect.andThen(
-				redis.use((c) => c.get(`cus:${user.sub}`)),
-				(raw) =>
-					raw
-						? raw === '0'
-							? createCustomer(user)
-							: Schema.decode(CachedCustomer)(raw)
-						: Effect.andThen(
-								getCustomerFromDb(user.sub),
-								Either.match({
-									onRight: (id) =>
-										Effect.andThen(
-											stripeCall((s) => s.customers.retrieve(id, { expand: ['invoice_settings.default_payment_method'] })),
-											(c) => ((data = extractCustomer(c)) => Effect.as(cacheCustomer(user.sub, data), data))(),
-										),
-									onLeft: () => createCustomer(user),
-								}),
+			Effect.gen(function* () {
+				const raw = yield* redis.use((c) => c.get(`cus:${user.sub}`));
+				if (!raw) {
+					return yield* Result.match(yield* getCustomerFromDb(user.sub), {
+						onSuccess: (id) =>
+							Effect.andThen(
+								stripeCall((s) => s.customers.retrieve(id, { expand: ['invoice_settings.default_payment_method'] })),
+								(c) => ((data = extractCustomer(c)) => Effect.as(cacheCustomer(user.sub, data), data))(),
 							),
-			);
+						onFailure: () => createCustomer(user),
+					});
+				}
+				if (raw === '0') return yield* createCustomer(user);
+				return yield* Schema.decodeEffect(CachedCustomer)(raw);
+			});
 
 		const getInvoices = <U extends StripeCustomerUser>(user: U) =>
 			Effect.andThen(getCustomer(user), ({ id }) =>
@@ -115,7 +111,7 @@ export class StripeCustomerService extends Effect.Service<StripeCustomerService>
 					{
 						clientSecret: Effect.flatMap(
 							stripeCall((s) => s.setupIntents.create({ customer: id, automatic_payment_methods: { enabled: true } })),
-							(si) => Effect.fromNullable(si.client_secret),
+							(si) => Effect.fromNullishOr(si.client_secret),
 						),
 						customerSessionClientSecret: Effect.map(
 							stripeCall((s) => s.customerSessions.create({ customer: id, components: { payment_element: { enabled: true } } })),
@@ -154,5 +150,6 @@ export class StripeCustomerService extends Effect.Service<StripeCustomerService>
 			getPaymentMethod,
 		};
 	}),
-	dependencies: [StripeService.Default],
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(StripeService.layer));
+}

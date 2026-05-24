@@ -11,16 +11,16 @@
  * Wire format: base64url-encoded `iv (12 bytes) || ciphertext || GCM tag (16 bytes)`.
  */
 
-import { Context, Effect, ParseResult, Schema } from 'effect';
+import { Context, Effect, Layer, Option, Schema, SchemaGetter, SchemaIssue } from 'effect';
 
 const IV_BYTES = 12;
 const B64URL = { alphabet: 'base64url' as const, omitPadding: true };
 
 /** App-provided passphrase. Derived to a 256-bit AES-GCM key via SHA-256 at service construction. */
-export class CryptoConfig extends Context.Tag('CryptoConfig')<CryptoConfig, { readonly key: string }>() {}
+export class CryptoConfig extends Context.Service<CryptoConfig, { readonly key: string }>()('CryptoConfig') {}
 
-export class CryptoService extends Effect.Service<CryptoService>()('CryptoService', {
-	effect: Effect.gen(function* () {
+export class CryptoService extends Context.Service<CryptoService>()('CryptoService', {
+	make: Effect.gen(function* () {
 		const { key: passphrase } = yield* CryptoConfig;
 		const aesKey = yield* Effect.promise(() =>
 			crypto.subtle
@@ -29,42 +29,47 @@ export class CryptoService extends Effect.Service<CryptoService>()('CryptoServic
 		);
 
 		// AES-GCM transform over a non-null string: ciphertext (Encoded) <-> plaintext (Type).
-		const StringCrypto = Schema.transformOrFail(Schema.String, Schema.String, {
-			strict: true,
-			decode: (ciphertext, _, ast) =>
-				Effect.tryPromise({
-					try: () =>
-						((bin) =>
-							crypto.subtle.decrypt({ name: 'AES-GCM', iv: bin.subarray(0, IV_BYTES) }, aesKey, bin.subarray(IV_BYTES)).then((pt) => new TextDecoder().decode(pt)))(
-							Uint8Array.fromBase64(ciphertext, { alphabet: 'base64url' }),
-						),
-					catch: () => new ParseResult.Type(ast, ciphertext, 'Decryption failed'),
-				}),
-			encode: (plaintext, _, ast) =>
-				Effect.tryPromise({
-					try: () =>
-						((iv) =>
-							crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, new TextEncoder().encode(plaintext)).then((ct) => {
-								const out = new Uint8Array(IV_BYTES + ct.byteLength);
-								out.set(iv);
-								out.set(new Uint8Array(ct), IV_BYTES);
-								return out.toBase64(B64URL);
-							}))(crypto.getRandomValues(new Uint8Array(IV_BYTES))),
-					catch: () => new ParseResult.Type(ast, plaintext, 'Encryption failed'),
-				}),
-		});
+		const StringCrypto = Schema.String.pipe(
+			Schema.decodeTo(Schema.String, {
+				decode: SchemaGetter.transformOrFail((ciphertext: string) =>
+					Effect.tryPromise({
+						try: () =>
+							((bin) =>
+								crypto.subtle.decrypt({ name: 'AES-GCM', iv: bin.subarray(0, IV_BYTES) }, aesKey, bin.subarray(IV_BYTES)).then((pt) => new TextDecoder().decode(pt)))(
+								Uint8Array.fromBase64(ciphertext, { alphabet: 'base64url' }),
+							),
+						catch: () => new SchemaIssue.InvalidValue(Option.some(ciphertext), { message: 'Decryption failed' }),
+					}),
+				),
+				encode: SchemaGetter.transformOrFail((plaintext: string) =>
+					Effect.tryPromise({
+						try: () =>
+							((iv) =>
+								crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, new TextEncoder().encode(plaintext)).then((ct) => {
+									const out = new Uint8Array(IV_BYTES + ct.byteLength);
+									out.set(iv);
+									out.set(new Uint8Array(ct), IV_BYTES);
+									return out.toBase64(B64URL);
+								}))(crypto.getRandomValues(new Uint8Array(IV_BYTES))),
+						catch: () => new SchemaIssue.InvalidValue(Option.some(plaintext), { message: 'Encryption failed' }),
+					}),
+				),
+			}),
+		);
 
 		// Schema codec for nullable string fields (e.g. OAuth tokens in Postgres). Null passes through.
 		const Codec = Schema.NullOr(StringCrypto);
 		// JSON value <-> ciphertext: decrypt then `JSON.parse`, `JSON.stringify` then encrypt.
-		const JsonCodec = Schema.compose(StringCrypto, Schema.parseJson());
+		const JsonCodec = StringCrypto.pipe(Schema.decodeTo(Schema.UnknownFromJsonString));
 		return {
-			encode: Schema.encode(Codec),
-			decode: Schema.decode(Codec),
-			encodeJson: Schema.encode(JsonCodec),
+			encode: Schema.encodeEffect(Codec),
+			decode: Schema.decodeEffect(Codec),
+			encodeJson: Schema.encodeEffect(JsonCodec),
 			// Decryption is authenticated (AES-GCM tag) and the payload is one we encrypted ourselves,
 			// so the shape is guaranteed by construction — callers name it via the type parameter.
-			decodeJson: <T = unknown>(ciphertext: string) => Schema.decode(JsonCodec)(ciphertext) as Effect.Effect<T, ParseResult.ParseError>,
+			decodeJson: <T = unknown>(ciphertext: string) => Schema.decodeEffect(JsonCodec)(ciphertext) as Effect.Effect<T, Schema.SchemaError>,
 		};
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

@@ -33,10 +33,10 @@ export const redirect = (location?: string, status?: RedirectStatus) => Effect.f
 export const invalid = (message: string) => Effect.fail(new ValidationError({ message }));
 
 const EFFECT_TAG_STATUS: Record<string, number> = {
-	NoSuchElementException: 404,
-	IllegalArgumentException: 400,
-	ParseError: 400,
-	TimeoutException: 408,
+	NoSuchElementError: 404,
+	IllegalArgumentError: 400,
+	SchemaError: 400,
+	TimeoutError: 408,
 	ValidationError: 400,
 	HttpError: 500,
 	Redirect: 302,
@@ -67,4 +67,4 @@ export function resolveError(err: unknown): { status: number; message: string; t
  */
 export const handleCause = (cause: Cause.Cause<unknown>, build: (squashed: unknown, info: { status: number; message: string }) => unknown) =>
 	((squashed = Cause.squash(cause), info = resolveError(squashed), die = Effect.die(build(squashed, info))) =>
-		info.status < 500 ? die : Effect.zipRight(Effect.logError(info.tag, cause), die))();
+		info.status < 500 ? die : Effect.andThen(Effect.logError(info.tag, cause), die))();

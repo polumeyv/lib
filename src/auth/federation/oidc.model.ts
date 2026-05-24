@@ -44,7 +44,7 @@ export const OAuthResult = Schema.Struct({
 	access_token: Schema.String,
 	refresh_token: Schema.NullOr(Schema.String),
 	/** Absolute access-token expiry (derived from the provider's `expires_in`). */
-	expires_at: Schema.NullOr(Schema.DateFromSelf),
+	expires_at: Schema.NullOr(Schema.Date),
 	scopes: Schema.String,
 	claims: OAuthClaims,
 });

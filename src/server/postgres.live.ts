@@ -14,7 +14,7 @@ import { makeUse } from './use';
 /**
  * Controls how `null`/`undefined` results from a single-row query are surfaced.
  * Omit the option to keep the raw nullable result (default).
- *  - `'fail'`   → unwraps to `NonNullable<T>`, failing with `NoSuchElementException` when missing.
+ *  - `'fail'`   → unwraps to `NonNullable<T>`, failing with `NoSuchElementError` when missing.
  *  - `'option'` → wraps the result in `Option<NonNullable<T>>`.
  *
  * `applyOnNull` is the shared helper; any future single-row method on `Postgres`
@@ -23,8 +23,8 @@ import { makeUse } from './use';
 type OnNullMode = 'fail' | 'option';
 
 const applyOnNull = (eff: Effect.Effect<any, any, any>, mode: OnNullMode | undefined): Effect.Effect<any, any, any> => {
-	if (mode === 'fail') return Effect.flatMap(eff, Effect.fromNullable);
-	if (mode === 'option') return Effect.map(eff, Option.fromNullable);
+	if (mode === 'fail') return Effect.flatMap(eff, Effect.fromNullishOr);
+	if (mode === 'option') return Effect.map(eff, Option.fromNullishOr);
 	return eff;
 };
 
