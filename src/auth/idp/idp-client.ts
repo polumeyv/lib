@@ -69,9 +69,17 @@ export class IdpClient extends Context.Service<IdpClient>()('app/IdpClient', {
 		const opts = yield* IdpClientConfig;
 		const issuerUrl = new URL(opts.publicAuthUrl);
 
+		// This consumer's own origin (from its redirect URI). The IdP runs SvelteKit CSRF, which 403s
+		// cross-site form POSTs to /oauth2/{token,revoke} unless the Origin is in its trustedOrigins.
+		// A server-side fetch sends no Origin by default, so set it explicitly — the IdP whitelists it.
+		const consumerOrigin = new URL(opts.redirectUri).origin;
+
 		// HTTPS is enforced by oauth4webapi; in local dev the IdP is plain http://localhost, so opt into insecure
 		// requests for http URLs only — threaded into every request below. Prod (https) stays strict.
-		const httpOpts = issuerUrl.protocol === 'http:' ? { [oauth.allowInsecureRequests]: true } : undefined;
+		const httpOpts = {
+			headers: { origin: consumerOrigin },
+			...(issuerUrl.protocol === 'http:' ? { [oauth.allowInsecureRequests]: true } : {}),
+		};
 
 		const { as, client, clientAuth } = yield* Effect.tryPromise({
 			try: async () => {
