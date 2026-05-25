@@ -1,4 +1,4 @@
-import { Context, Data, Effect, Layer } from 'effect';
+import { Context, Data, Effect, Layer, Schedule } from 'effect';
 import * as oauth from 'oauth4webapi';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import type { HttpStatusError } from '@polumeyv/lib/error';
@@ -90,7 +90,12 @@ export class IdpClient extends Context.Service<IdpClient>()('app/IdpClient', {
 				return { as, client, clientAuth: oauth.ClientSecretPost(opts.clientSecret) };
 			},
 			catch: idpError('IdP discovery failed'),
-		});
+		}).pipe(
+			// Discovery runs once at layer build, so a transient IdP blip (e.g. auth + this app
+			// restarting in parallel on the same host during a deploy) would otherwise leave the
+			// consumer permanently failing until restarted. Back off and retry over ~10s.
+			Effect.retry(Schedule.exponential('300 millis').pipe(Schedule.both(Schedule.recurs(6)))),
+		);
 
 		if (!as.authorization_endpoint) return yield* Effect.fail(new IdpClientError({ message: 'IdP discovery doc has no authorization_endpoint' }));
 		if (!as.jwks_uri) return yield* Effect.fail(new IdpClientError({ message: 'IdP discovery doc has no jwks_uri' }));
