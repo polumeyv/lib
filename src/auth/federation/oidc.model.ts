@@ -27,18 +27,54 @@
  * | `refresh_token` | `TEXT`         | Provider refresh token (for offline access).                      |
  * | `scopes`        | `TEXT`         | Space-separated scopes granted by the provider.                   |
  */
-import { Schema } from 'effect';
+import { Schema, Struct } from 'effect';
 import { Email } from '@polumeyv/lib/public/types';
 
-export class OAuthClaims extends Schema.Class<OAuthClaims>('OAuthClaims')({
-	sub: Schema.String,
-	email: Email,
-	given_name: Schema.NullOr(Schema.String),
-	family_name: Schema.NullOr(Schema.String),
-	picture: Schema.NullOr(Schema.String),
-	locale: Schema.NullOr(Schema.String),
-}) {}
+const OidcAddressClaim = Schema.Struct({
+	formatted: Schema.optional(Schema.String),
+	street_address: Schema.optional(Schema.String),
+	locality: Schema.optional(Schema.String),
+	region: Schema.optional(Schema.String),
+	postal_code: Schema.optional(Schema.String),
+	country: Schema.optional(Schema.String),
+});
 
+export const OidcStandardClaims = Schema.Struct({
+	address: Schema.optional(OidcAddressClaim),
+	birthdate: Schema.optional(Schema.String),
+	email: Schema.optional(Schema.String),
+	email_verified: Schema.optional(Schema.Boolean),
+	family_name: Schema.optional(Schema.String),
+	gender: Schema.optional(Schema.String),
+	given_name: Schema.optional(Schema.String),
+	locale: Schema.optional(Schema.String),
+	middle_name: Schema.optional(Schema.String),
+	name: Schema.optional(Schema.String),
+	nickname: Schema.optional(Schema.String),
+	phone_number: Schema.optional(Schema.String),
+	phone_number_verified: Schema.optional(Schema.Boolean),
+	picture: Schema.optional(Schema.String),
+	preferred_username: Schema.optional(Schema.String),
+	profile: Schema.optional(Schema.String),
+	sub: Schema.optional(Schema.String),
+	updated_at: Schema.optional(Schema.Number),
+	website: Schema.optional(Schema.String),
+	zoneinfo: Schema.optional(Schema.String),
+});
+
+export const GoogleClaims = Schema.Struct({
+	// `always` — Google's provider subject (≤255 ASCII chars), NOT your internal user UUID. → `subject` column.
+	sub: Schema.String,
+	// Guaranteed whenever the `email` scope is requested (your default includes it).
+	email: Email,
+	email_verified: Schema.Boolean,
+	// "Might be provided… never guaranteed to be present" per Google, even with the `profile` scope.
+	name: Schema.optional(Schema.String),
+	given_name: Schema.optional(Schema.String),
+	family_name: Schema.optional(Schema.String),
+	picture: Schema.optional(Schema.String),
+	locale: Schema.optional(Schema.String),
+});
 export const OAuthResult = Schema.Struct({
 	provider: Schema.String,
 	access_token: Schema.String,
@@ -46,7 +82,7 @@ export const OAuthResult = Schema.Struct({
 	/** Absolute access-token expiry (derived from the provider's `expires_in`). */
 	expires_at: Schema.NullOr(Schema.Date),
 	scopes: Schema.String,
-	claims: OAuthClaims,
+	claims: GoogleClaims,
 });
 
 export type OAuthResult = typeof OAuthResult.Type;

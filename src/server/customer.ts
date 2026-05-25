@@ -15,7 +15,7 @@ import { PaymentMethod } from '../public/types';
 import { Postgres } from './postgres';
 import { Redis } from './redis';
 import type { UserSub } from '../user/model';
-import { invalid } from '@polumeyv/lib/error';
+import { ValidationError } from '@polumeyv/lib/error';
 import { StripeService } from './stripe';
 
 export const CachedCustomer = Schema.fromJsonString(Schema.Struct({ id: Schema.String, pm: PaymentMethod }));
@@ -48,7 +48,7 @@ export class StripeCustomerService extends Context.Service<StripeCustomerService
 				(promos) => {
 					const pc = promos.data[0];
 					const coupon = promos.data[0]?.promotion.coupon;
-					if (!pc || !coupon || typeof coupon === 'string') return invalid('Invalid promo code');
+					if (!pc || !coupon || typeof coupon === 'string') return new ValidationError({ message: 'Invalid promo code' });
 					return Effect.succeed({ id: pc.id, name: coupon.name ?? code, percentOff: coupon.percent_off, amountOff: coupon.amount_off });
 				},
 			);

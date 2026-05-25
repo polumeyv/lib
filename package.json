@@ -102,7 +102,7 @@
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.0",
     "jose": "^6.2.2",
-    "openid-client": "^6.8.3",
+    "oauth4webapi": "^3.8.6",
     "stripe": "^22.1.1"
   }
 }

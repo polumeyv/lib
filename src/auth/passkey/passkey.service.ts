@@ -37,7 +37,10 @@ export class PasskeyService extends Context.Service<PasskeyService>()('PasskeySe
 			verifyAuth: ({ challengeKey, response }: VerifyAuthInput) =>
 				Effect.gen(function* () {
 					const stored = yield* session.take<{ challenge: string }>(Key(challengeKey));
-					const credential = yield* pg.first((sql) => sql<PasskeyTable[]>`SELECT * FROM passkey_credentials WHERE id = ${response.id}`, { onNull: 'fail' });
+					// Unregistered passkey: the lookup returns no row → a clear, user-facing message instead of the
+					// generic NoSuchElementError (which the client can't translate into anything meaningful).
+					const credential = yield* pg.first<PasskeyTable[]>((sql) => sql`SELECT * FROM passkey_credentials WHERE id = ${response.id}`);
+					if (!credential) return yield* new WebAuthnError({ message: 'No account is registered for this passkey.' });
 
 					const r = yield* Effect.filterOrFail(
 						Effect.tryPromise({

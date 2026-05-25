@@ -39,16 +39,9 @@ export const UserTable = Schema.Struct({
 	stripe_cus_id: Schema.NullOr(Schema.String.check(Schema.isMaxLength(255))),
 	stripe_sub_id: Schema.NullOr(Schema.String.check(Schema.isMaxLength(255))),
 	stripe_acct_id: Schema.NullOr(Schema.String.check(Schema.isMaxLength(255))),
-	email_alerts: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(true))),
-	weekly_report: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(false))),
-	marketing_emails: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(false))),
 	locked: Schema.Boolean.pipe(Schema.withDecodingDefaultType(Effect.succeed(false))),
-	referred_by: Schema.NullOr(Uuid),
-	affiliate_earned: Schema.Int,
 	terms_acc: Schema.NullOr(Schema.Date),
 	roles: Schema.Array(Schema.String),
-	plan: Schema.NullOr(Schema.String.check(Schema.isMaxLength(20))),
-	forwarding_urls: Schema.NullOr(Schema.Array(Schema.String)),
 });
 
 export { UserName } from '@polumeyv/lib/public/types';

@@ -1,5 +1,5 @@
 import { Context, Data, Effect, Layer } from 'effect';
-import { refreshTokenGrant } from 'openid-client';
+import * as oauth from 'oauth4webapi';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 import type { UserSub } from '../../user/model';
 import { OAuthAccountStore } from './account-store';
@@ -16,8 +16,8 @@ const REFRESH_THRESHOLD_MS = 60_000;
 
 /**
  * Hands out a valid access token for `(sub, provider)` — refreshes via
- * `openid-client.refreshTokenGrant` against the cached provider Configuration
- * when the cached token is stale, and persists the refreshed token back to
+ * oauth4webapi's `refreshTokenGrantRequest`/`processRefreshTokenResponse` against
+ * the resolved provider when the cached token is stale, and persists it back to
  * `OAuthAccountStore` so the next call hits the cache.
  *
  * Replaces the hand-rolled token-refresh logic that calendar-sync used to
@@ -37,9 +37,12 @@ export class OAuthTokenVault extends Context.Service<OAuthTokenVault>()('OAuthTo
 				if (account.access_token && account.token_expires && account.token_expires.getTime() - Date.now() > REFRESH_THRESHOLD_MS) return account.access_token;
 
 				// Refresh + persist.
-				const { config } = yield* resolver.resolve(provider);
+				const { as, client, clientAuth } = yield* resolver.resolve(provider);
 				const tokens = yield* Effect.tryPromise({
-					try: () => refreshTokenGrant(config, account.refresh_token!),
+					try: async () => {
+						const res = await oauth.refreshTokenGrantRequest(as, client, clientAuth, account.refresh_token!);
+						return await oauth.processRefreshTokenResponse(as, client, res);
+					},
 					catch: (e) => new OAuthTokenError({ cause: e, message: `Token refresh failed for ${sub}/${provider}` }),
 				});
 				if (!tokens.access_token) return yield* Effect.fail(new OAuthTokenError({ message: `Provider returned no access_token on refresh for ${sub}/${provider}` }));

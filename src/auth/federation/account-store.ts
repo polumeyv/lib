@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Option } from 'effect';
 import { Postgres, CryptoService } from '@polumeyv/lib/server';
 import { Email } from '@polumeyv/lib/public/types';
-import { UserSub } from '../../user/model';
+import type { UserSub, AuthPayload } from '../../user/model';
 import type { OAuthResult } from './oidc.model';
 
 export type OAuthAccountStatus = 'active' | 'revoked' | 'hijacked';
@@ -47,7 +47,7 @@ export class OAuthAccountStore extends Context.Service<OAuthAccountStore>()('OAu
 
 		return {
 			/** Insert or update an account for `sub`; sets status='active'. Tokens encrypted via codec. The OAuthResult shape comes straight from `OidcAuthFlow.exchangeCode` — no per-call-site mapping. */
-			link: (sub: typeof UserSub.Type, r: OAuthResult) =>
+			link: (sub: UserSub, r: OAuthResult) =>
 				Effect.andThen(encodeTokens(r), ([access, refresh]) =>
 					pg.use(
 						(sql) => sql`
@@ -66,7 +66,7 @@ export class OAuthAccountStore extends Context.Service<OAuthAccountStore>()('OAu
 				),
 
 			/** Find the active `(sub, provider)` account with plaintext tokens. Used by the token vault. */
-			getBySub: (sub: typeof UserSub.Type, provider: string) =>
+			getBySub: (sub: UserSub, provider: string) =>
 				Effect.flatMap(
 					pg.first(
 						(sql) => sql<OAuthAccount[]>`
@@ -98,7 +98,7 @@ export class OAuthAccountStore extends Context.Service<OAuthAccountStore>()('OAu
 			refreshLinkOrResolveUser: (r: OAuthResult) =>
 				Effect.flatMap(encodeTokens(r), ([access, refresh]) =>
 					pg.first(
-						(sql) => sql<{ sub: typeof UserSub.Type; email: typeof Email.Type; terms_acc: boolean; linked: boolean }[]>`
+						(sql) => sql<{ user: AuthPayload; linked: boolean }[]>`
 							WITH updated AS (
 								UPDATE oidc_accounts
 								SET email = ${r.claims.email},
@@ -108,10 +108,10 @@ export class OAuthAccountStore extends Context.Service<OAuthAccountStore>()('OAu
 								WHERE provider = ${r.provider} AND subject = ${r.claims.sub}
 								RETURNING sub
 							)
-							SELECT u.sub, u.email, u.terms_acc IS NOT NULL AS terms_acc, TRUE AS linked
+							SELECT jsonb_build_object('sub', u.sub, 'email', u.email, 'terms_acc', u.terms_acc IS NOT NULL) AS user, TRUE AS linked
 							FROM updated JOIN users u USING (sub)
 							UNION ALL
-							SELECT u.sub, u.email, u.terms_acc IS NOT NULL AS terms_acc, FALSE AS linked
+							SELECT jsonb_build_object('sub', u.sub, 'email', u.email, 'terms_acc', u.terms_acc IS NOT NULL) AS user, FALSE AS linked
 							FROM users u
 							WHERE u.email = ${r.claims.email} AND NOT EXISTS (SELECT 1 FROM updated)
 						`,

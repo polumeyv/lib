@@ -6,8 +6,6 @@ import { type UserSub, type AuthPayload, UserTable, UserName } from './model';
 const NameJson = Schema.fromJsonString(UserName);
 const NAME_CACHE_TTL = 84_000;
 
-type TermsAcc = Pick<AuthPayload, 'terms_acc'>
-
 export class BaseUserRepository extends Context.Service<BaseUserRepository>()('BaseUserRepository', {
 	make: Effect.gen(function* () {
 		const pg = yield* Postgres;
@@ -56,11 +54,7 @@ export class BaseUserRepository extends Context.Service<BaseUserRepository>()('B
 				`,
 				),
 
-			getTermsAccepted: (sub: UserSub) =>
-				pg.first<[TermsAcc]>((sql) => sql`SELECT (terms_acc IS NOT NULL) AS terms_acc FROM users WHERE sub = ${sub}`, { onNull: 'fail' }),
-
 			lockUser: (sub: UserSub) => pg.use((sql) => sql`UPDATE users SET locked = TRUE WHERE sub = ${sub}`),
-			acceptTerms: (sub: UserSub) => pg.use((sql) => sql`UPDATE users SET terms_acc = NOW() WHERE sub = ${sub}`),
 			deleteBySub: (sub: UserSub) =>
 				Effect.tap(
 					pg.use((sql) => sql`DELETE FROM users WHERE sub = ${sub}`),

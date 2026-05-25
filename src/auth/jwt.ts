@@ -42,6 +42,8 @@ export class Jwt extends Context.Service<Jwt>()('Jwt', {
 		const privateKey = yield* keyUtil(privateJwk);
 		const publicKey = yield* keyUtil(publicJwk);
 
+		const andThenNonNull = <A, B, E, R>(value: A, f: (a: NonNullable<A>) => Effect.Effect<B, E, R>) => Effect.andThen(Effect.fromNullishOr(value), f);
+
 		const sign = (payload: JWTPayload, ttl: number, opts?: { subject?: string; audience?: string }) =>
 			Effect.tryPromise({
 				try: () =>
@@ -55,30 +57,25 @@ export class Jwt extends Context.Service<Jwt>()('Jwt', {
 		const verifyJwt = (token: string, opts?: { audience?: string }) =>
 			Effect.tryPromise({ try: () => jwtVerify(token, publicKey, { issuer, ...opts }), catch: (e) => new JwtError({ cause: e }) });
 
-		const verifyAccess = (token: string) =>
-			Effect.andThen(
-				verifyJwt(token, { audience: `${issuer}/app` }),
-				({ payload }) =>
-					Effect.mapError(
-						Effect.map(Schema.decodeUnknownEffect(AuthPayload)(payload), (auth): AuthPayload => ({ ...payload, ...auth })),
-						(e) => new JwtError({ cause: e, message: 'Invalid JWT payload' }),
-					),
-			);
+		const verifyAccess = (token: string | undefined) =>
+			Effect.gen(function* () {
+				const { payload } = yield* andThenNonNull(token, (t) => verifyJwt(t, { audience: `${issuer}/app` }));
+				const auth = yield* Schema.decodeUnknownEffect(AuthPayload)(payload).pipe(Effect.mapError((e) => new JwtError({ cause: e, message: 'Invalid JWT payload' })));
+				const merged: AuthPayload = { ...payload, ...auth };
+				return merged;
+			});
 
-		const signOAuth2 = (payload: JWTPayload, ttl: number, subject?: string) => sign(payload, ttl, { subject });
+		const signOAuth2 = (payload: JWTPayload, ttl: number, opts?: { subject?: string; audience?: string }) => sign(payload, ttl, opts);
 		const signAccess = (payload: AuthPayload) => sign(payload, accessTtl, { audience: `${issuer}/app` });
 
 		// Refresh token = opaque UUIDv7. Redis is the sole source of truth for validity
 		// and carries the full AuthPayload so we can mint a new access JWT without a DB hit.
 		// Per OAuth 2.1 §1.3.2: "an identifier used to retrieve the authorization information".
 		const mintTokenPair = (payload: AuthPayload) =>
-			Effect.gen(function* () {
-				const refresh = Bun.randomUUIDv7();
-				const access = yield* signAccess(payload);
-				yield* session.set(`refresh:${refresh}`, refreshTtl, payload);
-				yield* Effect.logInfo(`tokens created for ${payload.sub} refresh=${refresh}`);
-				return { access, refresh };
-			});
+			((refresh) => Effect.map(Effect.tap(signAccess(payload), session.set(`refresh:${refresh}`, refreshTtl, payload)), (access) => ({ access, refresh })))(
+				Bun.randomUUIDv7(),
+			);
+
 		return {
 			accessTtl,
 
@@ -88,24 +85,40 @@ export class Jwt extends Context.Service<Jwt>()('Jwt', {
 
 			mintTokenPair,
 
-			// Rotation + passive reuse detection via atomic POP: replaying an already-used
-			// token finds nothing in Redis and fails. No JWT decode, no signature check.
-			verifyRefresh: (token: string) => Effect.flatMap(session.take<AuthPayload>(`refresh:${token}`), mintTokenPair),
+			/**
+			 * Rotation + passive reuse detection via atomic POP: replaying an already-used
+			 * Pass in cookie value directly, method will handle if 'undefined' with `NoSuchElementError`
+			 * token finds nothing in Redis and fails. No JWT decode, no signature check.
+			 */
+			verifyRefresh: (token: string | undefined) =>
+				Effect.gen(function* () {
+					const payload = yield* andThenNonNull(token, (t) => session.take<AuthPayload>(`refresh:${t}`));
+					const tokens = yield* mintTokenPair(payload);
+					return { tokens, payload };
+				}),
 
 			revokeRefresh: (token: string) => session.delete(`refresh:${token}`),
 
-			/** Sign OAuth2 token pair for consumer apps (session-based refresh, no JTI rotation). TTLs supplied by caller (typically OAuth2Service). */
-			signOAuth2Tokens: (payload: AuthPayload, sid: string, extraClaims?: Record<string, unknown>) =>
+			/** Sign OAuth2 token pair for consumer apps (session-based refresh, no JTI rotation). TTLs supplied by caller (typically OAuth2Service).
+			 *  The refresh token is bound to `clientId` via its `aud` claim so verifyOAuth2Refresh rejects a token replayed by
+			 *  a different client at signature-verify time — before any session is read or deleted. */
+			signOAuth2Tokens: (payload: AuthPayload, sid: string, clientId: string, extraClaims?: Record<string, unknown>) =>
 				Effect.all({
-					access_token: signOAuth2({ ...payload, ...extraClaims }, accessTtl, payload.sub),
-					refresh_token: signOAuth2({ type: 'refresh', sid }, refreshTtl),
+					access_token: signOAuth2({ ...payload, ...extraClaims }, accessTtl, { subject: payload.sub }),
+					refresh_token: signOAuth2({ type: 'refresh', sid }, refreshTtl, { audience: clientId }),
 				}),
 
-			verifyOAuth2Refresh: (token: string) =>
-				Effect.andThen(verifyJwt(token), ({ payload }) => extractOAuth2Sid(payload)),
+			verifyOAuth2Refresh: (token: string | null, clientId: string) =>
+				Effect.andThen(
+					andThenNonNull(token, (t) => verifyJwt(t, { audience: clientId })),
+					({ payload }) => extractOAuth2Sid(payload),
+				),
 
-			decodeOAuth2RefreshSid: (token: string) =>
-				Effect.andThen(Effect.try({ try: () => decodeJwt(token), catch: (e: any) => new JwtError({ message: e ?? 'Invalid refresh token' }) }), extractOAuth2Sid),
+			decodeOAuth2RefreshSid: (token: string | null) =>
+				Effect.fromNullishOr(token).pipe(
+					Effect.andThen((t) => Effect.try({ try: () => decodeJwt(t), catch: (e: any) => new JwtError({ message: e ?? 'Invalid refresh token' }) })),
+					Effect.andThen(extractOAuth2Sid),
+				),
 		};
 	}),
 }) {

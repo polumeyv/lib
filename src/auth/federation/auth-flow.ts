@@ -1,17 +1,8 @@
 import { Cause, Context, Data, Effect, Layer, Schema } from 'effect';
 import { SessionService } from '@polumeyv/lib/server';
-import { redirect, type HttpStatusError } from '@polumeyv/lib/error';
-import {
-	authorizationCodeGrant,
-	AuthorizationResponseError,
-	buildAuthorizationUrl,
-	calculatePKCECodeChallenge,
-	randomNonce,
-	randomPKCECodeVerifier,
-	randomState,
-	ResponseBodyError,
-} from 'openid-client';
-import { OAuthClaims, type OAuthResult } from './oidc.model';
+import { type HttpStatusError } from '@polumeyv/lib/error';
+import * as oauth from 'oauth4webapi';
+import { GoogleClaims, OAuthResult } from './oidc.model';
 import { UserSub } from '../../user/model';
 import { Email } from '@polumeyv/lib/public/types';
 import { OAuthProviderResolver } from './provider-resolver';
@@ -24,28 +15,22 @@ export class OAuthFlowError extends Data.TaggedError('OAuthFlowError')<{ cause?:
 	}
 }
 
-const OAuthSessionKey = (state: string) => `oauth:${state}`;
+/** Redis key for the parked PKCE/OAuth-flow state — written when the flow begins (auth app's `/oauth2/google` route) and popped here on callback. */
+export const OAuthSessionKey = (state: string) => `oauth:${state}`;
 export const LinkingKey = (email: string) => `link_oidc:${email}`;
 
 /** Parked OAuth-flow state pushed to Redis under `OAuthSessionKey(state)` while the user is at the IdP, popped when they come back to the callback. */
-interface OAuthFlowSession {
+export interface OAuthFlowSession {
 	readonly nonce: string;
 	readonly code_verifier: string;
 	readonly provider: string;
-	readonly redirect_uri?: string;
 }
 
 export class OidcAuthFlowConfig extends Context.Service<
 	OidcAuthFlowConfig,
 	{
-		/** TTL in seconds for PKCE OAuth sessions in Redis (default: 300 — 5 min). */
-		readonly oauthSessionTtl: number;
 		/** Space-separated OAuth scopes requested from the identity provider (default: 'openid email profile'). */
 		readonly oauthScopes: string;
-		/** TTL in seconds for parked signup payloads in Redis (default: 3 600 — 1 h). */
-		readonly signupSessionTtl: number;
-		/** TTL in seconds for OIDC account-linking sessions in Redis (default: 600 — 10 min). */
-		readonly oidcLinkSessionTtl: number;
 	}
 >()('OidcAuthFlowConfig') {}
 
@@ -55,74 +40,50 @@ export class OidcAuthFlowConfig extends Context.Service<
  * params, signup payloads, linking payloads), and `OAuthAccountStore` for the
  * persistent OAuth account row.
  *
- * Persistent storage of `oidc_accounts` rows lives in `OAuthAccountStore`;
- * this module only orchestrates the flow.
+ * Persistent storage of `oidc_accounts` rows lives in `OAuthAccountStore`; this
+ * module only orchestrates the callback half. The begin half — mint PKCE state,
+ * park it under `OAuthSessionKey`, redirect to the IdP — lives in the auth app's
+ * `/oauth2/google` route, sharing `OAuthSessionKey`/`OAuthFlowSession` with `exchangeCode`.
  */
 export class OidcAuthFlow extends Context.Service<OidcAuthFlow>()('OidcAuthFlow', {
 	make: Effect.gen(function* () {
-		const { oauthSessionTtl, oauthScopes } = yield* OidcAuthFlowConfig;
+		const { oauthScopes } = yield* OidcAuthFlowConfig;
 		const session = yield* SessionService;
 		const resolver = yield* OAuthProviderResolver;
 		const store = yield* OAuthAccountStore;
-
-		/**
-		 * Mints PKCE state, parks it in Redis under `OAuthSessionKey(state)`, builds the IdP's authorize URL, and fail-redirects (302) the user to it.
-		 * Caller never sees the URL — this terminates the request via the lib `redirect` cause.
-		 */
-		const redirectToAuthUrl = (
-			provider: string,
-			{ scopes = oauthScopes, extras, redirect_uri: redirectOverride }: { scopes?: string; extras?: Record<string, string>; redirect_uri?: string } = {},
-		) =>
-			Effect.gen(function* () {
-				const { config, entry } = yield* resolver.resolve(provider);
-				const code_verifier = randomPKCECodeVerifier();
-				const state = randomState();
-				const nonce = randomNonce();
-				const redirect_uri = redirectOverride ?? entry.redirectUri;
-				yield* session.set(OAuthSessionKey(state), oauthSessionTtl, { nonce, code_verifier, provider, redirect_uri } satisfies OAuthFlowSession);
-				const code_challenge = yield* Effect.promise(() => calculatePKCECodeChallenge(code_verifier));
-				const url = buildAuthorizationUrl(config, { redirect_uri, scope: scopes, state, nonce, code_challenge, code_challenge_method: 'S256', ...extras });
-				return yield* redirect(url.toString(), 302);
-			});
 
 		const exchangeCode = (callbackUrl: URL) =>
 			Effect.gen(function* () {
 				const state = callbackUrl.searchParams.get('state');
 				if (!state) return yield* new Cause.IllegalArgumentError('Missing state parameter in callback URL');
 
-				const { nonce, code_verifier, provider, redirect_uri } = yield* session.take<OAuthFlowSession>(OAuthSessionKey(state));
-				const { config, entry } = yield* resolver.resolve(provider);
+				const { nonce, code_verifier, provider } = yield* session.take<OAuthFlowSession>(OAuthSessionKey(state));
+				const { as, client, clientAuth, redirectUri } = yield* resolver.resolve(provider);
 
 				const tokens = yield* Effect.tryPromise({
-					try: () =>
-						authorizationCodeGrant(
-							config,
-							callbackUrl,
-							{ expectedState: state, expectedNonce: nonce, pkceCodeVerifier: code_verifier },
-							{ redirect_uri: redirect_uri ?? entry.redirectUri },
-						),
+					try: async () => {
+						// Validate the callback params + bind the parked `state` (throws on an error redirect or state mismatch).
+						const callbackParams = oauth.validateAuthResponse(as, client, callbackUrl, state);
+						const res = await oauth.authorizationCodeGrantRequest(as, client, clientAuth, callbackParams, redirectUri, code_verifier);
+						// Code flow: the id_token comes straight from the token endpoint over TLS, so its claims (iss/aud/exp/nonce)
+						// are validated but the signature isn't required (OIDC Core §3.1.3.7) — no JWKS fetch needed.
+
+						return await oauth.processAuthorizationCodeResponse(as, client, res, { expectedNonce: nonce, requireIdToken: true });
+					},
 					catch: (e) =>
 						new OAuthFlowError({
 							cause: e,
-							message: e instanceof AuthorizationResponseError || e instanceof ResponseBodyError ? e.error_description || e.error : 'Token exchange failed',
+							message: e instanceof oauth.AuthorizationResponseError || e instanceof oauth.ResponseBodyError ? e.error_description || e.error : 'Token exchange failed',
 						}),
 				});
-
-				const claimsRaw = tokens.claims() as Record<string, unknown> | undefined;
+				const claimsRaw = oauth.getValidatedIdTokenClaims(tokens);
 				if (!claimsRaw) return yield* new OAuthFlowError({ message: 'No ID token claims returned' });
 				if (claimsRaw.email_verified === false) return yield* new OAuthFlowError({ message: 'Email not verified by provider' });
 
-				// Normalize the wire shape (provider may omit fields entirely) to the internal `string | null` shape so
-				// downstream consumers don't each have to `?? null`. This is the single boundary where wire becomes storage shape.
-				const normalizedClaims = {
-					...claimsRaw,
-					given_name: claimsRaw.given_name ?? null,
-					family_name: claimsRaw.family_name ?? null,
-					picture: claimsRaw.picture ?? null,
-					locale: claimsRaw.locale ?? null,
-				};
+				// Claims stay exactly as the provider sends them — optional fields remain `string | undefined`.
+				// Bun's SQL driver coerces `undefined` → `NULL` at the insert, so no normalization is needed here.
 				return {
-					claims: yield* Schema.decodeUnknownEffect(OAuthClaims)(normalizedClaims),
+					claims: yield* Schema.decodeUnknownEffect(GoogleClaims)(claimsRaw),
 					provider,
 					access_token: tokens.access_token,
 					scopes: tokens.scope ?? oauthScopes,
@@ -139,7 +100,6 @@ export class OidcAuthFlow extends Context.Service<OidcAuthFlow>()('OidcAuthFlow'
 			Effect.flatMap(session.take<typeof OAuthResult.Type>(LinkingKey(email)), (r) => store.link(sub, r));
 
 		return {
-			redirectToAuthUrl,
 			exchangeCode,
 			linkAccount,
 		};

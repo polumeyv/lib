@@ -19,18 +19,12 @@ export class Unauthorized extends Data.TaggedError('Unauthorized')<{ readonly me
 		super({ message });
 	}
 }
-export class Redirect extends Data.TaggedError('Redirect')<{ readonly status: RedirectStatus; readonly location: string }> {
-	constructor(arg?: string | { readonly status?: RedirectStatus; readonly location?: string }) {
+export class Redirect extends Data.TaggedError('Redirect')<{ readonly status: RedirectStatus; readonly location: string | URL }> {
+	constructor(arg?: string | { readonly status?: RedirectStatus; readonly location?: string | URL }) {
 		const args = typeof arg === 'string' ? { location: arg } : (arg ?? {});
 		super({ status: args.status ?? 303, location: args.location ?? '/' });
 	}
 }
-
-/** Fail an Effect with a redirect. Defaults to `303 /`. */
-export const redirect = (location?: string, status?: RedirectStatus) => Effect.fail(new Redirect({ status, location }));
-
-/** Fail an Effect with a 400 validation error. */
-export const invalid = (message: string) => Effect.fail(new ValidationError({ message }));
 
 const EFFECT_TAG_STATUS: Record<string, number> = {
 	NoSuchElementError: 404,
