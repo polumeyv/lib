@@ -23,16 +23,14 @@ Effect-based infrastructure + auth library for Bun applications. Each module exp
 - `OidcAuthFlow` — authorize-URL build + callback exchange + signup/linking sessions; composes provider resolver + account store
 - `OAuthTokenVault` — `getValidAccessToken(sub, provider)`; refreshes via `refreshTokenGrant` + persists; consumed by downstream apps that call third-party APIs (e.g. Google Calendar)
 - `RiscService` — Google Cross-Account Protection event receiver (`process` decodes, `dispatchToStore` applies events to `OAuthAccountStore`)
-- `OAuth2Service` + `OAuth2ClientRegistry` — OAuth2 server-side flow for downstream consumer apps
 - `BaseUserRepository` — `users` table read/write
 - `AuthConfig` + `makeAuthConfig` — TTLs, lockout schedule, crypto key
 
-### Auth — public (`@polumeyv/lib/auth`, `@polumeyv/lib/auth/oauth2-client`, `@polumeyv/lib/auth/passkey-client`)
+### Auth — public (`@polumeyv/lib/auth`, `@polumeyv/lib/auth/idp-client`)
 - Branded types (`UserSub`, `Email`)
 - Schemas (`AuthPayload`, `OAuthClaims`, `OAuthResult`, `BaseUser`)
 - Tagged result classes (`OtpSession`, `InvalidCode`, `UserLocked`, `HasOidc`, `AuthenticatedUser`)
-- `makeOAuthClient` — HTTP client for downstream apps to talk to a host auth server
-- `makeAccessTokenVerifier` — JWKS-backed access-token verifier
+- `IdpClient` (+ `IdpClient.layer`) — downstream-app client for the IdP: authorize-URL, code exchange, token refresh/revoke, and JWKS-backed access-token verification
 
 ### Public types (`@polumeyv/lib/public/types`, `@polumeyv/lib/public/types/db`, `@polumeyv/lib/public/s3`)
 Branded primitives + DB row types safe for both server and client bundles.

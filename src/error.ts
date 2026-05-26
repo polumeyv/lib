@@ -19,6 +19,10 @@ export class Unauthorized extends Data.TaggedError('Unauthorized')<{ readonly me
 		super({ message });
 	}
 }
+/** Expired or missing session (Redis key gone). Surfaces as 401; route boundaries catch it to bounce to sign-in / `invalid_grant`. */
+export class SessionExpiredError extends Data.TaggedError('SessionExpiredError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
+	readonly statusCode = 401 as const;
+}
 export class Redirect extends Data.TaggedError('Redirect')<{ readonly status: RedirectStatus; readonly location: string | URL }> {
 	constructor(arg?: string | { readonly status?: RedirectStatus; readonly location?: string | URL }) {
 		const args = typeof arg === 'string' ? { location: arg } : (arg ?? {});

@@ -71,7 +71,7 @@ export const ProBusinesses = Schema.Struct({
 	refunds_enabled: Schema.Boolean,
 	refunds_partial: Schema.Boolean,
 	currency: Schema.String,
-	tax_rate: Schema.NumberFromString, // DECIMAL(5,3) — Bun returns numeric as string
+	tax_rate: Schema.Number, // DECIMAL(5,3); read sites cast `::float8` → number, and the `n:tax_rate` form field arrives pre-coerced to number
 	tip_percentages: Schema.mutable(Schema.Array(Schema.Number)),
 	refund_deadline_days: Schema.Number,
 	refund_percentage: Schema.Number,

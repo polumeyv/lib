@@ -3,6 +3,5 @@ export * from './customer';
 export * from './postgres';
 export * from './redis';
 export * from './s3';
-export * from './session';
 export * from './sms';
 export * from './stripe';

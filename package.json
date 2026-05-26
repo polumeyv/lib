@@ -19,8 +19,6 @@
     "auth",
     "jwt",
     "otp",
-    "passkey",
-    "webauthn",
     "oauth"
   ],
   "scripts": {
@@ -84,13 +82,9 @@
       "types": "./src/user/index.ts",
       "default": "./src/user/index.ts"
     },
-    "./auth/passkey-client": {
-      "types": "./src/auth/passkey/passkey.client.ts",
-      "default": "./src/auth/passkey/passkey.client.ts"
-    },
     "./auth/idp-client": {
-      "types": "./src/auth/idp/index.ts",
-      "default": "./src/auth/idp/index.ts"
+      "types": "./src/auth/idp-client.ts",
+      "default": "./src/auth/idp-client.ts"
     }
   },
   "peerDependencies": {
@@ -99,8 +93,6 @@
   },
   "dependencies": {
     "@internationalized/date": "^3.12.0",
-    "@simplewebauthn/browser": "^13.3.0",
-    "@simplewebauthn/server": "^13.3.0",
     "jose": "^6.2.2",
     "oauth4webapi": "^3.8.6",
     "stripe": "^22.1.1"
