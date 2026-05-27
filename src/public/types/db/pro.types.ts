@@ -179,6 +179,19 @@ export const ProServices = Schema.Struct({
 });
 export type ProServicesType = typeof ProServices.Type;
 
+// Retail products (catalog, sold to clients during appointments)
+export const ProProducts = Schema.Struct({
+	id: Schema.String,
+	b_id: Schema.String,
+	name: Schema.String,
+	descr: Schema.NullOr(Schema.String),
+	price: Schema.Number, // cents
+	stock: Schema.NullOr(Schema.Number), // null = stock not tracked
+	active: Schema.Boolean,
+	updated: Schema.Date,
+});
+export type ProProductsType = typeof ProProducts.Type;
+
 // Clients
 export const ProClients = Schema.Struct({
 	client_id: Schema.String,
