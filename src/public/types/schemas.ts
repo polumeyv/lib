@@ -15,7 +15,6 @@ export const Phone = Schema.String.pipe(
 			message: 'Please enter a valid phone number',
 		}),
 	),
-	Schema.brand('Phone'),
 );
 export type Phone = typeof Phone.Type;
 
@@ -44,4 +43,6 @@ export const MonthString = Schema.String.pipe(Schema.check(Schema.isPattern(/^\d
 export const TimeString = Schema.String.pipe(Schema.check(Schema.isPattern(/^\d{2}:\d{2}$/, { message: 'Invalid time (expected HH:MM)' })));
 
 /** ISO 8601 wall-clock date-time without zone, `YYYY-MM-DDTHH:MM`. */
-export const DateTimeString = Schema.String.pipe(Schema.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, { message: 'Invalid date-time (expected YYYY-MM-DDTHH:MM)' })));
+export const DateTimeString = Schema.String.pipe(
+	Schema.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, { message: 'Invalid date-time (expected YYYY-MM-DDTHH:MM)' })),
+);

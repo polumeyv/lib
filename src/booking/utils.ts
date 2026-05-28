@@ -8,14 +8,21 @@
  * - Slot responses are `{ start, end }` objects with ISO 8601 `HH:MM` wall-clock times.
  */
 import { Schema } from 'effect';
-import { parseTime, parseDate, CalendarDate, CalendarDateTime, toCalendarDateTime, DateFormatter } from '@internationalized/date';
+import {
+	parseTime,
+	parseDate,
+	CalendarDate,
+	CalendarDateTime,
+	toCalendarDateTime,
+	DateFormatter,
+	type TimeDuration,
+	Time,
+	type DateTimeDuration,
+} from '@internationalized/date';
 import { BOOKING_STATUS, type ProServicesType } from '../public/types/db/pro.types';
 
 /** Shape returned by GET /book/services/:b_id for each service — the public projection of a `ProServices` row. */
 export type Service = Pick<ProServicesType, 'id' | 'type' | 'name' | 'amount' | 'dur'>;
-
-/** An available booking slot — ISO 8601 "HH:MM" wall-clock start/end, as returned by /book/day and /book/month. */
-export type Slot = { start: string; end: string };
 
 /** ISO 8601 "HH:MM" wall-clock → a UTC instant on the reference day, ready for TIME_FMT.
  *  (DateFormatter renders JS Dates; pinning the instant and the formatter to UTC keeps the
@@ -28,10 +35,6 @@ export const formatTimeDisplay = (time: string) => new DateFormatter('en-US', { 
 /** ISO "HH:MM" pair → "9:30 – 10:15 AM" (locale-aware range). */
 export const formatTimeRange = (start: string, end: string) =>
 	new DateFormatter('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }).formatRange(timeToDate(start), timeToDate(end));
-
-/** ISO "YYYY-MM-DD" → "Monday, January 1, 2024". */
-export const formatBookingDate = (dateStr: string) =>
-	new DateFormatter('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(parseDate(dateStr).toDate('UTC'));
 
 /** Wall-clock components in `tz` → "Monday, January 1, 2024 at 9:30 AM EST".
  *  `CalendarDateTime(...).toDate(tz)` interprets the components as wall-clock time in `tz`. */
@@ -48,6 +51,12 @@ export const formatBookingDateTime = (year: number, month: number, day: number, 
 	}).format(new CalendarDateTime(year, month, day, h, m).toDate(tz));
 
 // ═══ Booking DB table schemas ══════════════════════════════════════════════
+export type TimeSlot = {
+	startsAt: ReturnType<typeof Time.toString>; // Time.toString() → "14:00:00"
+	dur: ReturnType<typeof minutesToIso>;
+};
+
+const minutesToIso = (m: number) => `PT${m}M`;
 
 // Enums
 export const DISCOUNT_TYPE = Schema.Literals(['percent', 'fixed']);

@@ -70,7 +70,6 @@ export const ProBusinesses = Schema.Struct({
 	tips_custom: Schema.Boolean,
 	refunds_enabled: Schema.Boolean,
 	refunds_partial: Schema.Boolean,
-	currency: Schema.String,
 	tax_rate: Schema.Number, // DECIMAL(5,3); read sites cast `::float8` → number, and the `n:tax_rate` form field arrives pre-coerced to number
 	tip_percentages: Schema.mutable(Schema.Array(Schema.Number)),
 	refund_deadline_days: Schema.Number,
@@ -120,7 +119,6 @@ export const ProFinancialSettings = ProBusinesses.mapFields(
 		'tips_custom',
 		'refunds_enabled',
 		'refunds_partial',
-		'currency',
 		'tax_rate',
 		'tip_percentages',
 		'refund_deadline_days',

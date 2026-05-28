@@ -5,6 +5,10 @@ import { UserSub } from '../auth';
 
 export { BOOKING_STATUS, type BookingStatus };
 
+export * from './schema';
+
+export * from './utils'
+
 // ═══ DOMAIN ERRORS ════════════════════════════════════════════════════════
 // Tagged errors for booking-specific HTTP statuses not covered by Effect's
 // built-in Cause exceptions or lib's existing per-domain errors.
