@@ -9,7 +9,8 @@
  * Wire format: base64url-encoded `iv (12 bytes) || ciphertext || GCM tag (16 bytes)`.
  */
 
-import { Context, Effect, Layer, Option, Schema, SchemaGetter, SchemaIssue } from 'effect';
+import { Context, Effect, Layer, Option, SchemaGetter, SchemaIssue } from 'effect';
+import * as S from 'effect/Schema';
 
 const IV_BYTES = 12;
 /** App-provided passphrase. Derived to a 256-bit AES-GCM key via SHA-256 at service construction. */
@@ -27,9 +28,9 @@ export class CryptoService extends Context.Service<CryptoService>()('CryptoServi
 
 		// Schema codec for nullable string fields (e.g. OAuth tokens in Postgres). Null passes through.
 		// AES-GCM transform over a non-null string: ciphertext (Encoded) <-> plaintext (Type).
-		const Codec = Schema.NullOr(
-			Schema.String.pipe(
-				Schema.decodeTo(Schema.String, {
+		const Codec = S.NullOr(
+			S.String.pipe(
+				S.decodeTo(S.String, {
 					decode: SchemaGetter.transformOrFail((ciphertext: string) =>
 						Effect.tryPromise({
 							try: () =>
@@ -57,8 +58,8 @@ export class CryptoService extends Context.Service<CryptoService>()('CryptoServi
 			),
 		);
 		return {
-			encode: Schema.encodeEffect(Codec),
-			decode: Schema.decodeEffect(Codec),
+			encode: S.encodeEffect(Codec),
+			decode: S.decodeEffect(Codec),
 		};
 	}),
 }) {

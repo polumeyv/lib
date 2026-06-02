@@ -31,7 +31,8 @@
  * Redis failures and corrupt entries degrade to `load`; a failed cache write never fails the operation.
  */
 import type { RedisClient } from 'bun';
-import { Context, Data, Effect, Schema } from 'effect';
+import { Context, Data, Effect } from 'effect';
+import * as S from 'effect/Schema';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 
 export class RedisError extends Data.TaggedError('RedisError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
@@ -42,7 +43,7 @@ export class RedisError extends Data.TaggedError('RedisError')<{ cause?: unknown
 
 export interface CacheOptions<Id, A, LE, LR, SA, SE, SR> {
 	key: (id: Id) => string;
-	codec: Schema.Codec<A, string>; // Type A ↔ Encoded string, e.g. Schema.fromJsonString(Inner)
+	codec: S.Codec<A, string>; // Type A ↔ Encoded string, e.g. S.fromJsonString(Inner)
 	ttl: number;
 	load: (id: Id) => Effect.Effect<A, LE, LR>;
 	save: (id: Id, value: A) => Effect.Effect<SA, SE, SR>;

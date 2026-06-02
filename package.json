@@ -78,7 +78,7 @@
       "types": "./src/auth/index.ts",
       "default": "./src/auth/index.ts"
     },
-     "./user": {
+    "./user": {
       "types": "./src/user/index.ts",
       "default": "./src/user/index.ts"
     },
@@ -93,6 +93,7 @@
   },
   "dependencies": {
     "@internationalized/date": "^3.12.0",
+    "cookie": "^1.1.1",
     "jose": "^6.2.2",
     "oauth4webapi": "^3.8.6",
     "stripe": "^22.1.1"

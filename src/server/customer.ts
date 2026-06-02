@@ -9,7 +9,8 @@
  * a sentinel value `0` recording a temporary Stripe outage to avoid retry storms.
  */
 
-import { Cause, Context, Effect, Layer, Result, Schema } from 'effect';
+import { Cause, Context, Effect, Layer, Result } from 'effect';
+import * as S from 'effect/Schema';
 import { type Stripe } from 'stripe';
 import { PaymentMethod } from '../public/types';
 import { Postgres } from './postgres';
@@ -18,7 +19,7 @@ import type { UserSub } from '../user/model';
 import { ValidationError } from '@polumeyv/lib/error';
 import { StripeService } from './stripe';
 
-export const CachedCustomer = Schema.fromJsonString(Schema.Struct({ id: Schema.String, pm: PaymentMethod }));
+export const CachedCustomer = S.fromJsonString(S.Struct({ id: S.String, pm: PaymentMethod }));
 
 export type StripeCustomerUser = { sub: typeof UserSub.Type; email: string };
 
@@ -40,7 +41,7 @@ export class StripeCustomerService extends Context.Service<StripeCustomerService
 		const cacheRaw = (sub: typeof UserSub.Type, value: string | null) => redis.use((c) => c.setex(`cus:${sub}`, CACHE_TTL, value ?? '0'));
 
 		const cacheCustomer = (sub: typeof UserSub.Type, data: typeof CachedCustomer.Type) =>
-			Effect.andThen(Schema.encodeEffect(CachedCustomer)(data), (json) => redis.use((c) => c.setex(`cus:${sub}`, CACHE_TTL, json)));
+			Effect.andThen(S.encodeEffect(CachedCustomer)(data), (json) => redis.use((c) => c.setex(`cus:${sub}`, CACHE_TTL, json)));
 
 		const validateCoupon = (code: string) =>
 			Effect.flatMap(
@@ -87,7 +88,7 @@ export class StripeCustomerService extends Context.Service<StripeCustomerService
 					});
 				}
 				if (raw === '0') return yield* createCustomer(user);
-				return yield* Schema.decodeEffect(CachedCustomer)(raw);
+				return yield* S.decodeEffect(CachedCustomer)(raw);
 			});
 
 		const getInvoices = <U extends StripeCustomerUser>(user: U) =>

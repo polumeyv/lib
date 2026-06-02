@@ -1,82 +1,83 @@
-import { Schema, Struct } from 'effect';
+import { Struct } from 'effect';
+import * as S from 'effect/Schema';
 
 // Enums
-export const B_TYPE = Schema.Literals(['salon', 'barbershop', 'spa', 'nails', 'esthetics', 'makeup', 'tattoo', 'other']);
+export const B_TYPE = S.Literals(['salon', 'barbershop', 'spa', 'nails', 'esthetics', 'makeup', 'tattoo', 'other']);
 export type BType = typeof B_TYPE.Type;
 
-export const CLIENT_STATUS = Schema.Literals(['active', 'inactive', 'vip', 'new', 'at_risk']);
+export const CLIENT_STATUS = S.Literals(['active', 'inactive', 'vip', 'new', 'at_risk']);
 export type ClientStatus = typeof CLIENT_STATUS.Type;
 
-export const SERVICE_TYPE = Schema.Literals(['service', 'addon']);
+export const SERVICE_TYPE = S.Literals(['service', 'addon']);
 export type ServiceType = typeof SERVICE_TYPE.Type;
 
-export const AVAILABILITY_TYPE = Schema.Literals(['recurring', 'specific_date', 'flexible', 'blocked']);
+export const AVAILABILITY_TYPE = S.Literals(['recurring', 'specific_date', 'flexible', 'blocked']);
 export type AvailabilityType = typeof AVAILABILITY_TYPE.Type;
 
-export const BOOKING_STATUS = Schema.Literals(['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show']);
+export const BOOKING_STATUS = S.Literals(['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show']);
 export type BookingStatus = typeof BOOKING_STATUS.Type;
 
-export const PAYOUT_SCHEDULE = Schema.Literals(['daily', 'weekly', 'biweekly', 'monthly']);
+export const PAYOUT_SCHEDULE = S.Literals(['daily', 'weekly', 'biweekly', 'monthly']);
 export type PayoutSchedule = typeof PAYOUT_SCHEDULE.Type;
 
-export const SERVICE_CATEGORY = Schema.Literals(['haircut', 'color', 'styling', 'treatment', 'extension', 'nails', 'wax', 'facial', 'makeup', 'massage', 'other']);
+export const SERVICE_CATEGORY = S.Literals(['haircut', 'color', 'styling', 'treatment', 'extension', 'nails', 'wax', 'facial', 'makeup', 'massage', 'other']);
 export type ServiceCategory = typeof SERVICE_CATEGORY.Type;
 
 // Business: identity + booking settings + financial settings (1:1 collapsed into one row)
-export const ProBusinesses = Schema.Struct({
-	b_id: Schema.String,
-	owner_sub: Schema.String,
-	legal_name: Schema.String,
-	dba: Schema.NullOr(Schema.String),
-	tax_id: Schema.NullOr(Schema.String),
-	license_number: Schema.NullOr(Schema.String),
+export const ProBusinesses = S.Struct({
+	b_id: S.String,
+	owner_sub: S.String,
+	legal_name: S.String,
+	dba: S.NullOr(S.String),
+	tax_id: S.NullOr(S.String),
+	license_number: S.NullOr(S.String),
 	b_type: B_TYPE,
-	website: Schema.NullOr(Schema.String),
-	phone: Schema.NullOr(Schema.String),
-	email: Schema.NullOr(Schema.String),
-	status: Schema.Number,
-	tz: Schema.String, // us_timezone, e.g. "America/New_York"
-	source: Schema.String,
-	listing_id: Schema.NullOr(Schema.String),
-	verified_at: Schema.NullOr(Schema.Date),
-	stripe_account_id: Schema.NullOr(Schema.String), // Stripe Connect account ID (acct_xxx)
-	platform_fee_bps: Schema.Number, // basis points withheld via application_fee_amount on destination charges
-	charges_enabled: Schema.Boolean, // cached from Stripe account.updated webhook
-	onboarding_complete: Schema.Boolean, // cached from Stripe account.updated webhook
-	payouts_enabled: Schema.Boolean, // cached from Stripe account.updated webhook
+	website: S.NullOr(S.String),
+	phone: S.NullOr(S.String),
+	email: S.NullOr(S.String),
+	status: S.Number,
+	tz: S.String, // us_timezone, e.g. "America/New_York"
+	source: S.String,
+	listing_id: S.NullOr(S.String),
+	verified_at: S.NullOr(S.Date),
+	stripe_account_id: S.NullOr(S.String), // Stripe Connect account ID (acct_xxx)
+	platform_fee_bps: S.Number, // basis points withheld via application_fee_amount on destination charges
+	charges_enabled: S.Boolean, // cached from Stripe account.updated webhook
+	onboarding_complete: S.Boolean, // cached from Stripe account.updated webhook
+	payouts_enabled: S.Boolean, // cached from Stripe account.updated webhook
 	// Booking settings
-	allow_online: Schema.Boolean,
-	require_deposit: Schema.Boolean,
-	auto_confirm: Schema.Boolean,
-	require_payment: Schema.Boolean,
-	allow_walkins: Schema.Boolean,
-	send_reminders: Schema.Boolean,
-	allow_cancel: Schema.Boolean,
-	allow_reschedule: Schema.Boolean,
-	deposit_amount: Schema.Number, // cents
-	deposit_is_fixed: Schema.Boolean,
-	cancellation_deadline_hours: Schema.Number,
-	max_advance_value: Schema.Number,
-	max_advance_in_hours: Schema.Boolean,
-	min_advance_value: Schema.Number,
-	min_advance_in_hours: Schema.Boolean,
-	buf: Schema.Number,
-	reminder_hours: Schema.Number,
-	cancellation_policy: Schema.NullOr(Schema.String),
+	allow_online: S.Boolean,
+	require_deposit: S.Boolean,
+	auto_confirm: S.Boolean,
+	require_payment: S.Boolean,
+	allow_walkins: S.Boolean,
+	send_reminders: S.Boolean,
+	allow_cancel: S.Boolean,
+	allow_reschedule: S.Boolean,
+	deposit_amount: S.Number, // cents
+	deposit_is_fixed: S.Boolean,
+	cancellation_deadline_hours: S.Number,
+	max_advance_value: S.Number,
+	max_advance_in_hours: S.Boolean,
+	min_advance_value: S.Number,
+	min_advance_in_hours: S.Boolean,
+	buf: S.Number,
+	reminder_hours: S.Number,
+	cancellation_policy: S.NullOr(S.String),
 	// Financial settings
-	tax_enabled: Schema.Boolean,
-	tax_included: Schema.Boolean,
-	tips_enabled: Schema.Boolean,
-	tips_custom: Schema.Boolean,
-	refunds_enabled: Schema.Boolean,
-	refunds_partial: Schema.Boolean,
-	tax_rate: Schema.Number, // DECIMAL(5,3); read sites cast `::float8` → number, and the `n:tax_rate` form field arrives pre-coerced to number
-	tip_percentages: Schema.mutable(Schema.Array(Schema.Number)),
-	refund_deadline_days: Schema.Number,
-	refund_percentage: Schema.Number,
+	tax_enabled: S.Boolean,
+	tax_included: S.Boolean,
+	tips_enabled: S.Boolean,
+	tips_custom: S.Boolean,
+	refunds_enabled: S.Boolean,
+	refunds_partial: S.Boolean,
+	tax_rate: S.Number, // DECIMAL(5,3); read sites cast `::float8` → number, and the `n:tax_rate` form field arrives pre-coerced to number
+	tip_percentages: S.mutable(S.Array(S.Number)),
+	refund_deadline_days: S.Number,
+	refund_percentage: S.Number,
 	payout_schedule: PAYOUT_SCHEDULE,
-	minimum_payout: Schema.Number, // cents
-	updated: Schema.Date,
+	minimum_payout: S.Number, // cents
+	updated: S.Date,
 });
 
 
@@ -130,118 +131,116 @@ export const ProFinancialSettings = ProBusinesses.mapFields(
 );
 export type ProFinancialSettingsType = typeof ProFinancialSettings.Type;
 
-export const ProAddresses = Schema.Struct({
-	id: Schema.String.check(Schema.isUUID()),
-	owner_id: Schema.String,
-	address_type: Schema.String,
-	street: Schema.String,
-	unit: Schema.NullOr(Schema.String),
-	city: Schema.NullOr(Schema.String),
-	state: Schema.NullOr(Schema.String),
-	zip: Schema.NullOr(Schema.String),
-	country: Schema.NullOr(Schema.String),
-	name: Schema.NullOr(Schema.String),
-	icon: Schema.String,
-	is_default: Schema.Boolean,
-	coord: Schema.NullOr(Schema.Tuple([Schema.Number, Schema.Number])), // [lat, lng]
-	updated: Schema.Date,
+export const ProAddresses = S.Struct({
+	id: S.String.check(S.isUUID()),
+	owner_id: S.String,
+	address_type: S.String,
+	street: S.String,
+	unit: S.NullOr(S.String),
+	city: S.NullOr(S.String),
+	state: S.NullOr(S.String),
+	zip: S.NullOr(S.String),
+	country: S.NullOr(S.String),
+	name: S.NullOr(S.String),
+	icon: S.String,
+	is_default: S.Boolean,
+	coord: S.NullOr(S.Tuple([S.Number, S.Number])), // [lat, lng]
+	updated: S.Date,
 });
 export type ProAddressesType = typeof ProAddresses.Type;
 
-export const ProHours = Schema.Struct({
-	id: Schema.String,
-	b_id: Schema.String,
-	week_day: Schema.Number,
-	open_time: Schema.NullOr(Schema.String),
-	close_time: Schema.NullOr(Schema.String),
-	closed: Schema.Boolean,
-	break_start: Schema.NullOr(Schema.String),
-	break_end: Schema.NullOr(Schema.String),
-	updated: Schema.Date,
+export const ProHours = S.Struct({
+	id: S.String,
+	b_id: S.String,
+	week_day: S.Number,
+	// Open ranges for the day as `{ start, end }` (`HH:MM`); empty array = closed. The gaps between ranges are the
+	// day's breaks. Stored as a JSONB array (Bun decodes it straight to a JS array), so no single-break columns.
+	ranges: S.Array(S.Struct({ start: S.String, end: S.String })),
+	updated: S.Date,
 });
 export type ProHoursType = typeof ProHours.Type;
 
 // Services / Catalog
-export const ProServices = Schema.Struct({
-	id: Schema.String,
-	b_id: Schema.String,
-	category_id: Schema.NullOr(Schema.Number),
+export const ProServices = S.Struct({
+	id: S.String,
+	b_id: S.String,
+	category_id: S.NullOr(S.Number),
 	type: SERVICE_TYPE,
-	name: Schema.String,
-	descr: Schema.NullOr(Schema.String),
-	amount: Schema.Number, // cents
-	dur: Schema.Number,
-	buf: Schema.NullOr(Schema.Number),
-	active: Schema.Boolean,
-	updated: Schema.Date,
+	name: S.String,
+	descr: S.NullOr(S.String),
+	amount: S.Number, // cents
+	dur: S.Number,
+	buf: S.NullOr(S.Number),
+	active: S.Boolean,
+	updated: S.Date,
 });
 export type ProServicesType = typeof ProServices.Type;
 
 // Retail products (catalog, sold to clients during appointments)
-export const ProProducts = Schema.Struct({
-	id: Schema.String,
-	b_id: Schema.String,
-	name: Schema.String,
-	descr: Schema.NullOr(Schema.String),
-	price: Schema.Number, // cents
-	stock: Schema.NullOr(Schema.Number), // null = stock not tracked
-	active: Schema.Boolean,
-	updated: Schema.Date,
+export const ProProducts = S.Struct({
+	id: S.String,
+	b_id: S.String,
+	name: S.String,
+	descr: S.NullOr(S.String),
+	price: S.Number, // cents
+	stock: S.NullOr(S.Number), // null = stock not tracked
+	active: S.Boolean,
+	updated: S.Date,
 });
 export type ProProductsType = typeof ProProducts.Type;
 
 // Clients
-export const ProClients = Schema.Struct({
-	client_id: Schema.String,
-	b_id: Schema.String,
-	sub: Schema.NullOr(Schema.String),
-	f_name: Schema.String,
-	l_name: Schema.optional(Schema.String),
-	email: Schema.optional(Schema.String),
-	phone: Schema.optional(Schema.String),
-	company: Schema.optional(Schema.String),
+export const ProClients = S.Struct({
+	client_id: S.String,
+	b_id: S.String,
+	sub: S.NullOr(S.String),
+	f_name: S.String,
+	l_name: S.NullOr(S.String),
+	email: S.NullOr(S.String),
+	phone: S.NullOr(S.String),
+	company: S.NullOr(S.String),
 	status: CLIENT_STATUS,
-	notes: Schema.optional(Schema.String),
-	tags: Schema.optional(Schema.Array(Schema.String)),
-	updated: Schema.Date,
+	notes: S.NullOr(S.String),
+	tags: S.NullOr(S.Array(S.String)),
+	updated: S.Date,
 });
 export type ProClientsType = typeof ProClients.Type;
 
 // Bookings
-export const ProBookings = Schema.Struct({
-	id: Schema.String,
-	b_id: Schema.String,
-	sub: Schema.String,
-	service_id: Schema.String,
-	pro_id: Schema.NullOr(Schema.String),
-	customer_email: Schema.NullOr(Schema.String),
-	customer_phone: Schema.NullOr(Schema.String),
-	time_slot: Schema.String,
+export const ProBookings = S.Struct({
+	id: S.String,
+	b_id: S.String,
+	sub: S.String,
+	service_id: S.String,
+	pro_id: S.NullOr(S.String),
+	customer_email: S.NullOr(S.String),
+	customer_phone: S.NullOr(S.String),
+	time_slot: S.String,
 	status: BOOKING_STATUS,
-	amount: Schema.Number, // cents
-	notes: Schema.NullOr(Schema.String),
-	cancellation_reason: Schema.NullOr(Schema.String),
-	cancelled_by: Schema.NullOr(Schema.String),
-	cancelled: Schema.NullOr(Schema.Date),
-	completed: Schema.NullOr(Schema.Date),
-	payment_intent_id: Schema.NullOr(Schema.String),
-	payment_status: Schema.String, // 'none' | Stripe PI status | 'refunded' | 'disputed'
-	platform_fee_amount: Schema.NullOr(Schema.Number), // cents
-	transfer_id: Schema.NullOr(Schema.String),
-	updated: Schema.Date,
+	amount: S.Number, // cents
+	notes: S.NullOr(S.String),
+	cancellation_reason: S.NullOr(S.String),
+	cancelled_by: S.NullOr(S.String),
+	cancelled: S.NullOr(S.Date),
+	completed: S.NullOr(S.Date),
+	payment_intent_id: S.NullOr(S.String),
+	payment_status: S.String, // 'none' | Stripe PI status | 'refunded' | 'disputed'
+	platform_fee_amount: S.NullOr(S.Number), // cents
+	transfer_id: S.NullOr(S.String),
+	updated: S.Date,
 });
 export type ProBookingsType = typeof ProBookings.Type;
 
 export const ProBookingsView = ProBookings.pipe(
-	Schema.fieldsAssign({
-		start_time: Schema.String,
-		dur: Schema.NullOr(Schema.Number),
+	S.fieldsAssign({
+		start_time: S.String,
+		dur: S.NullOr(S.Number),
 	}),
 );
 export type ProBookingsViewType = typeof ProBookingsView.Type;
 
-export const ProStripeCustomers = Schema.Struct({
-	sub: Schema.String,
-	stripe_customer_id: Schema.String,
+export const ProStripeCustomers = S.Struct({
+	sub: S.String,
+	stripe_customer_id: S.String,
 });
 export type ProStripeCustomersType = typeof ProStripeCustomers.Type;

@@ -1,7 +1,7 @@
 import { Name, Email, Phone } from '../public/types';
-import { Schema } from 'effect';
+import * as S from 'effect/Schema';
 
-export const BookingUserInfo = Schema.Struct({
+export const BookingUserInfo = S.Struct({
 	f_name: Name('First name'),
 	l_name: Name('Last name'),
 	email: Email,

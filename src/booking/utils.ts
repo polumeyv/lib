@@ -7,7 +7,7 @@
  * - Instants (booking records) use full ISO with `Z`.
  * - Slot responses are `{ start, end }` objects with ISO 8601 `HH:MM` wall-clock times.
  */
-import { Schema } from 'effect';
+import * as S from 'effect/Schema';
 import {
 	parseTime,
 	parseDate,
@@ -59,92 +59,92 @@ export type TimeSlot = {
 const minutesToIso = (m: number) => `PT${m}M`;
 
 // Enums
-export const DISCOUNT_TYPE = Schema.Literals(['percent', 'fixed']);
+export const DISCOUNT_TYPE = S.Literals(['percent', 'fixed']);
 export type DiscountType = typeof DISCOUNT_TYPE.Type;
 
-export const BOOKING_STEP = Schema.Literals(['service', 'time', 'details', 'confirm']);
+export const BOOKING_STEP = S.Literals(['service', 'time', 'details', 'confirm']);
 export type BookingStep = typeof BOOKING_STEP.Type;
 
 // Table schemas
-export const BookSessions = Schema.Struct({
-	session_id: Schema.String,
-	b_id: Schema.String,
-	service_id: Schema.NullOr(Schema.String),
-	pro_id: Schema.NullOr(Schema.String),
-	selected_time: Schema.NullOr(Schema.Date),
-	duration_mins: Schema.NullOr(Schema.Number),
-	amount: Schema.NullOr(Schema.Number), // cents
-	customer_email: Schema.NullOr(Schema.String),
-	customer_phone: Schema.NullOr(Schema.String),
-	customer_name: Schema.NullOr(Schema.String),
-	notes: Schema.NullOr(Schema.String),
-	step: Schema.String,
-	expires: Schema.Date,
-	updated: Schema.Date,
+export const BookSessions = S.Struct({
+	session_id: S.String,
+	b_id: S.String,
+	service_id: S.NullOr(S.String),
+	pro_id: S.NullOr(S.String),
+	selected_time: S.NullOr(S.Date),
+	duration_mins: S.NullOr(S.Number),
+	amount: S.NullOr(S.Number), // cents
+	customer_email: S.NullOr(S.String),
+	customer_phone: S.NullOr(S.String),
+	customer_name: S.NullOr(S.String),
+	notes: S.NullOr(S.String),
+	step: S.String,
+	expires: S.Date,
+	updated: S.Date,
 });
 export type BookSessionsType = typeof BookSessions.Type;
 
-export const BookSlotHolds = Schema.Struct({
-	hold_id: Schema.String,
-	session_id: Schema.String,
-	b_id: Schema.String,
-	pro_id: Schema.NullOr(Schema.String),
-	time_slot: Schema.String,
-	expires: Schema.Date,
+export const BookSlotHolds = S.Struct({
+	hold_id: S.String,
+	session_id: S.String,
+	b_id: S.String,
+	pro_id: S.NullOr(S.String),
+	time_slot: S.String,
+	expires: S.Date,
 });
 export type BookSlotHoldsType = typeof BookSlotHolds.Type;
 
-export const BookPromoCodes = Schema.Struct({
-	code_id: Schema.String,
-	b_id: Schema.String,
-	code: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(50))),
-	descr: Schema.optional(Schema.String),
+export const BookPromoCodes = S.Struct({
+	code_id: S.String,
+	b_id: S.String,
+	code: S.String.pipe(S.check(S.isMinLength(1), S.isMaxLength(50))),
+	descr: S.optional(S.String),
 	discount_type: DISCOUNT_TYPE,
-	discount_value: Schema.Number, // cents (or percent if discount_type='percent')
-	min_purchase: Schema.optional(Schema.Number), // cents
-	max_discount: Schema.optional(Schema.Number), // cents
-	usage_limit: Schema.optional(Schema.Number),
-	usage_count: Schema.Number,
-	valid_from: Schema.optional(Schema.Date),
-	valid_until: Schema.optional(Schema.Date),
-	service_ids: Schema.optional(Schema.Array(Schema.String)),
-	is_active: Schema.Boolean,
-	updated: Schema.Date,
+	discount_value: S.Number, // cents (or percent if discount_type='percent')
+	min_purchase: S.optional(S.Number), // cents
+	max_discount: S.optional(S.Number), // cents
+	usage_limit: S.optional(S.Number),
+	usage_count: S.Number,
+	valid_from: S.optional(S.Date),
+	valid_until: S.optional(S.Date),
+	service_ids: S.optional(S.Array(S.String)),
+	is_active: S.Boolean,
+	updated: S.Date,
 });
 export type BookPromoCodesType = typeof BookPromoCodes.Type;
 
-export const BookPromoRedemptions = Schema.Struct({
-	id: Schema.String,
-	code_id: Schema.String,
-	customer_email: Schema.NullOr(Schema.String),
-	discount_applied: Schema.Number, // cents
-	redeemed: Schema.Date,
+export const BookPromoRedemptions = S.Struct({
+	id: S.String,
+	code_id: S.String,
+	customer_email: S.NullOr(S.String),
+	discount_applied: S.Number, // cents
+	redeemed: S.Date,
 });
 export type BookPromoRedemptionsType = typeof BookPromoRedemptions.Type;
 
-export const BookGuests = Schema.Struct({
-	guest_id: Schema.String,
-	email: Schema.String,
-	phone: Schema.NullOr(Schema.String),
-	f_name: Schema.NullOr(Schema.String),
-	l_name: Schema.NullOr(Schema.String),
-	booking_count: Schema.Number,
-	last_booking: Schema.NullOr(Schema.Date),
-	updated: Schema.Date,
+export const BookGuests = S.Struct({
+	guest_id: S.String,
+	email: S.String,
+	phone: S.NullOr(S.String),
+	f_name: S.NullOr(S.String),
+	l_name: S.NullOr(S.String),
+	booking_count: S.Number,
+	last_booking: S.NullOr(S.Date),
+	updated: S.Date,
 });
 export type BookGuestsType = typeof BookGuests.Type;
 
-export const UserBookingRow = Schema.Struct({
-	id: Schema.String,
-	b_id: Schema.String,
-	start_ts: Schema.Date,
-	end_ts: Schema.Date,
-	dur: Schema.NullOr(Schema.Number),
+export const UserBookingRow = S.Struct({
+	id: S.String,
+	b_id: S.String,
+	start_ts: S.Date,
+	end_ts: S.Date,
+	dur: S.NullOr(S.Number),
 	status: BOOKING_STATUS,
-	amount: Schema.NullOr(Schema.Number),
-	notes: Schema.NullOr(Schema.String),
-	service_name: Schema.NullOr(Schema.String),
-	business_name: Schema.String,
-	business_address: Schema.String,
+	amount: S.NullOr(S.Number),
+	notes: S.NullOr(S.String),
+	service_name: S.NullOr(S.String),
+	business_name: S.String,
+	business_address: S.String,
 });
 export type UserBookingRow = typeof UserBookingRow.Type;

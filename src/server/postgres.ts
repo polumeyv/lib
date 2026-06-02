@@ -5,15 +5,16 @@
  *
  * Exports:
  *  - `Postgres`       — Context tag
- *  - `makePostgres`   — Factory: `(url: string) => Effect<Postgres>` (scoped — acquires connection pool, releases on scope close)
+ *  - `makePostgres`   — Factory: `(config: PostgresConfig) => Effect<Postgres>` (scoped — acquires connection pool, releases on scope close)
  *
- * `PostgresError` is intentionally internal: it derives `statusCode` / `message` from
- * the underlying SQLSTATE code, so callers never need to catch or translate it.
+ * `PostgresError` wraps Bun's `SQL.PostgresError` (mapped in `./postgres.live`): it carries that
+ * error's `code` (SQLSTATE) and `message` verbatim and derives `statusCode` from the SQLSTATE — the
+ * one thing Bun doesn't give us — so callers never need to catch or translate it.
  *
  * @example
  * ```ts
  * // App layer construction
- * Layer.scoped(Postgres, Effect.flatMap(Config.string('DATABASE_URL'), makePostgres))
+ * Layer.effect(Postgres, makePostgres({ hostname, port, database, username, password, searchPath: 'public' }))
  *
  * // Usage in a service
  * const pg = yield* Postgres;
@@ -47,16 +48,18 @@ import { Context, Data, Effect, Option } from 'effect';
 import type { NoSuchElementError } from 'effect/Cause';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 
-// Postgres SQLSTATE → HTTP status mapping. Specific codes override class-level defaults.
+// Postgres SQLSTATE → HTTP status. Specific codes override class-level defaults. This is the *only*
+// thing we derive ourselves — Bun's `SQL.PostgresError` already carries `code`, `message`, `detail`,
+// `hint`, `constraint`, … so there's nothing else worth remapping.
 // See https://www.postgresql.org/docs/current/errcodes-appendix.html.
-const SQLSTATE_TO_STATUS: Record<string, number> = {
+const SQLSTATE_STATUS: Record<string, number> = {
 	'23502': 400, // not_null_violation — caller sent NULL into a NOT NULL column
 	'23514': 400, // check_violation — caller violated a CHECK constraint
 	'42501': 403, // insufficient_privilege
 	'57014': 408, // query_canceled
 };
 
-const SQLSTATE_CLASS_TO_STATUS: Record<string, number> = {
+const SQLSTATE_CLASS_STATUS: Record<string, number> = {
 	'08': 503, // connection_exception
 	'22': 400, // data_exception (overflow, invalid format, bad cast)
 	'23': 409, // integrity_constraint_violation (unique, fkey, exclusion)
@@ -65,38 +68,16 @@ const SQLSTATE_CLASS_TO_STATUS: Record<string, number> = {
 	'57': 503, // operator_intervention (admin_shutdown, cannot_connect_now)
 };
 
-const SQLSTATE_TO_MESSAGE: Record<string, string> = {
-	'23502': 'Required field is missing',
-	'23503': 'Referenced record does not exist',
-	'23505': 'A record with that value already exists',
-	'23514': 'Value violates a database constraint',
-	'23P01': 'Conflicts with an existing record',
-	'22001': 'Input is too long',
-	'22003': 'Numeric value out of range',
-	'22007': 'Invalid date or time format',
-	'22P02': 'Invalid input format',
-	'40001': 'Concurrent update — please retry',
-	'40P01': 'Deadlock detected — please retry',
-	'42501': 'Insufficient privilege',
-	'57014': 'Query was canceled',
-};
+/** SQLSTATE → HTTP status; 500 when there's no recognizable code (e.g. a dropped connection). */
+const statusFromSqlState = (code: string | undefined): number => (code ? (SQLSTATE_STATUS[code] ?? SQLSTATE_CLASS_STATUS[code.slice(0, 2)] ?? 500) : 500);
 
-const sqlStateOf = (cause: unknown): string | undefined => {
-	const c = cause as { code?: unknown } | null | undefined;
-	return typeof c?.code === 'string' ? c.code : undefined;
-};
-
-const statusFromSqlState = (code: string | undefined): number => (code ? (SQLSTATE_TO_STATUS[code] ?? SQLSTATE_CLASS_TO_STATUS[code.slice(0, 2)] ?? 500) : 500);
-
-const messageFromSqlState = (code: string | undefined): string => (code ? (SQLSTATE_TO_MESSAGE[code] ?? `Database error (${code})`) : 'Database error');
-
-export class PostgresError extends Data.TaggedError('PostgresError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
-	constructor(args: { cause?: unknown; message?: string } = {}) {
-		super({ cause: args.cause, message: messageFromSqlState(sqlStateOf(args.cause)) });
-	}
-	get code(): string | undefined {
-		return sqlStateOf(this.cause);
-	}
+/**
+ * Effect-channel wrapper over a Bun `SQL.PostgresError` (built in `./postgres.live` via
+ * `instanceof SQL.PostgresError`). The Bun error is retained as `cause` — keeping `detail`/`hint`/
+ * `constraint`/`table`/… available for logs — while its SQLSTATE `code` and server `message` ride
+ * along directly. `statusCode` is the lone derived field.
+ */
+export class PostgresError extends Data.TaggedError('PostgresError')<{ cause?: unknown; code?: string; message?: string }> implements HttpStatusError {
 	get statusCode(): number {
 		return statusFromSqlState(this.code);
 	}

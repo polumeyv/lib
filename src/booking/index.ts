@@ -1,4 +1,5 @@
-import { Data, Schema, Struct } from 'effect';
+import { Data, Struct } from 'effect';
+import * as S from 'effect/Schema';
 import { BOOKING_STATUS, type BookingStatus } from '../public/types/db/pro.types';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 import { UserSub } from '../auth';
@@ -65,29 +66,29 @@ export interface Booking {
 
 // ═══ SETTINGS ══════════════════════════════════════════════════════════════
 
-export const BookingSettings = Schema.Struct({
-	allow_online: Schema.Boolean,
-	require_deposit: Schema.Boolean,
-	auto_confirm: Schema.Boolean,
-	require_payment: Schema.Boolean,
-	allow_walkins: Schema.Boolean,
-	send_reminders: Schema.Boolean,
-	allow_cancel: Schema.Boolean,
-	allow_reschedule: Schema.Boolean,
-	deposit_amount: Schema.Number,
-	deposit_is_fixed: Schema.Boolean,
-	cancellation_deadline_hours: Schema.Number,
-	max_advance_value: Schema.Number,
-	max_advance_in_hours: Schema.Boolean,
-	min_advance_value: Schema.Number,
-	min_advance_in_hours: Schema.Boolean,
-	buf: Schema.Number,
-	reminder_hours: Schema.Number,
-	cancellation_policy: Schema.optional(Schema.String),
+export const BookingSettings = S.Struct({
+	allow_online: S.Boolean,
+	require_deposit: S.Boolean,
+	auto_confirm: S.Boolean,
+	require_payment: S.Boolean,
+	allow_walkins: S.Boolean,
+	send_reminders: S.Boolean,
+	allow_cancel: S.Boolean,
+	allow_reschedule: S.Boolean,
+	deposit_amount: S.Number,
+	deposit_is_fixed: S.Boolean,
+	cancellation_deadline_hours: S.Number,
+	max_advance_value: S.Number,
+	max_advance_in_hours: S.Boolean,
+	min_advance_value: S.Number,
+	min_advance_in_hours: S.Boolean,
+	buf: S.Number,
+	reminder_hours: S.Number,
+	cancellation_policy: S.optional(S.String),
 });
 export type BookingSettings = typeof BookingSettings.Type;
 
-export const UpdateBookingSettingsS = BookingSettings.mapFields(Struct.map(Schema.optional));
+export const UpdateBookingSettingsS = BookingSettings.mapFields(Struct.map(S.optional));
 export type UpdateBookingSettings = typeof UpdateBookingSettingsS.Type;
 
 export const UpdateOnlineBookingS = BookingSettings.mapFields(
@@ -102,16 +103,16 @@ export const UpdateOnlineBookingS = BookingSettings.mapFields(
 		'auto_confirm',
 		'allow_reschedule',
 	]),
-).mapFields(Struct.map(Schema.optional));
+).mapFields(Struct.map(S.optional));
 
-export const UpdateRemindersS = BookingSettings.mapFields(Struct.pick(['send_reminders', 'reminder_hours'])).mapFields(Struct.map(Schema.optional));
+export const UpdateRemindersS = BookingSettings.mapFields(Struct.pick(['send_reminders', 'reminder_hours'])).mapFields(Struct.map(S.optional));
 
 export const UpdateDepositsS = BookingSettings.mapFields(Struct.pick(['require_payment', 'require_deposit', 'deposit_amount', 'deposit_is_fixed'])).mapFields(
-	Struct.map(Schema.optional),
+	Struct.map(S.optional),
 );
 
 export const UpdateCancellationS = BookingSettings.mapFields(Struct.pick(['allow_cancel', 'cancellation_deadline_hours', 'cancellation_policy'])).mapFields(
-	Struct.map(Schema.optional),
+	Struct.map(S.optional),
 );
 
 // ═══ API CLIENT ════════════════════════════════════════════════════════════
