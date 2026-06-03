@@ -1,101 +1,69 @@
 {
-  "name": "@polumeyv/lib",
-  "version": "0.9.0",
-  "description": "Effect-based infrastructure + auth library for Bun applications",
-  "license": "MIT",
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/polumeyv/lib.git"
-  },
-  "keywords": [
-    "effect",
-    "bun",
-    "postgres",
-    "redis",
-    "stripe",
-    "auth",
-    "jwt",
-    "otp",
-    "oauth"
-  ],
-  "scripts": {
-    "generate-jwt-keys": "bun bin/generate-jwt-keys.mjs",
-    "release": "npx changelogen --release --push"
-  },
-  "bin": {
-    "generate-jwt-keys": "./bin/generate-jwt-keys.mjs"
-  },
-  "type": "module",
-  "files": [
-    "src",
-    "bin"
-  ],
-  "exports": {
-    "./error": {
-      "types": "./src/error.ts",
-      "default": "./src/error.ts"
-    },
-    "./server": {
-      "types": "./src/server/index.ts",
-      "default": "./src/server/index.ts"
-    },
-    "./server/live": {
-      "types": "./src/server/live.ts",
-      "default": "./src/server/live.ts"
-    },
-    "./server/error": {
-      "types": "./src/server/error/index.ts",
-      "default": "./src/server/error/index.ts"
-    },
-    "./public/types": {
-      "types": "./src/public/types/index.ts",
-      "default": "./src/public/types/index.ts"
-    },
-    "./public/contact": {
-      "types": "./src/public/contact.ts",
-      "default": "./src/public/contact.ts"
-    },
-    "./booking": {
-      "types": "./src/booking/index.ts",
-      "default": "./src/booking/index.ts"
-    },
-    "./booking/utils": {
-      "types": "./src/booking/utils.ts",
-      "default": "./src/booking/utils.ts"
-    },
-    "./public/types/db": {
-      "types": "./src/public/types/db/index.ts",
-      "default": "./src/public/types/db/index.ts"
-    },
-    "./public/s3": {
-      "types": "./src/public/s3.ts",
-      "default": "./src/public/s3.ts"
-    },
-    "./auth": {
-      "types": "./src/auth/index.ts",
-      "default": "./src/auth/index.ts"
-    },
-    "./user": {
-      "types": "./src/user/index.ts",
-      "default": "./src/user/index.ts"
-    },
-    "./auth/idp-client": {
-      "types": "./src/auth/idp-client.ts",
-      "default": "./src/auth/idp-client.ts"
-    }
-  },
-  "peerDependencies": {
-    "effect": "4.0.0-beta.70",
-    "@internationalized/date": "3.12.1"
-  },
-  "dependencies": {
-    "@internationalized/date": "^3.12.0",
-    "cookie": "^1.1.1",
-    "jose": "^6.2.2",
-    "oauth4webapi": "^3.8.6",
-    "stripe": "^22.1.1"
-  }
+	"name": "@polumeyv/lib",
+	"version": "0.9.0",
+	"description": "Effect-based infrastructure + auth library for Bun applications",
+	"license": "MIT",
+	"publishConfig": {
+		"registry": "https://npm.pkg.github.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/polumeyv/lib.git"
+	},
+	"keywords": [
+		"effect",
+		"bun",
+		"postgres",
+		"redis",
+		"stripe",
+		"auth",
+		"jwt",
+		"otp",
+		"oauth"
+	],
+	"scripts": {
+		"generate-jwt-keys": "bun bin/generate-jwt-keys.mjs",
+		"release": "npx changelogen --release --push"
+	},
+	"bin": {
+		"generate-jwt-keys": "./bin/generate-jwt-keys.mjs"
+	},
+	"type": "module",
+	"files": [
+		"src",
+		"bin"
+	],
+	"exports": {
+		"./error": {
+			"types": "./src/error.ts",
+			"default": "./src/error.ts"
+		},
+		"./server": {
+			"types": "./src/server/index.ts",
+			"default": "./src/server/index.ts"
+		},
+		"./server/live": {
+			"types": "./src/server/live/index.ts",
+			"default": "./src/server/live/index.ts"
+		},
+		"./schemas": {
+			"types": "./src/schemas/index.ts",
+			"default": "./src/schemas/index.ts"
+		},
+		"./public": {
+			"types": "./src/public/index.ts",
+			"default": "./src/public/index.ts"
+		}
+	},
+	"peerDependencies": {
+		"effect": "4.0.0-beta.70",
+		"@internationalized/date": "3.12.1"
+	},
+	"dependencies": {
+		"@internationalized/date": "^3.12.0",
+		"cookie": "^1.1.1",
+		"jose": "^6.2.2",
+		"oauth4webapi": "^3.8.6",
+		"stripe": "^22.1.1"
+	}
 }

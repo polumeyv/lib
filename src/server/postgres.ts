@@ -7,7 +7,7 @@
  *  - `Postgres`       — Context tag
  *  - `makePostgres`   — Factory: `(config: PostgresConfig) => Effect<Postgres>` (scoped — acquires connection pool, releases on scope close)
  *
- * `PostgresError` wraps Bun's `SQL.PostgresError` (mapped in `./postgres.live`): it carries that
+ * `PostgresError` wraps Bun's `SQL.PostgresError` (mapped in `./live/postgres`): it carries that
  * error's `code` (SQLSTATE) and `message` verbatim and derives `statusCode` from the SQLSTATE — the
  * one thing Bun doesn't give us — so callers never need to catch or translate it.
  *
@@ -72,7 +72,7 @@ const SQLSTATE_CLASS_STATUS: Record<string, number> = {
 const statusFromSqlState = (code: string | undefined): number => (code ? (SQLSTATE_STATUS[code] ?? SQLSTATE_CLASS_STATUS[code.slice(0, 2)] ?? 500) : 500);
 
 /**
- * Effect-channel wrapper over a Bun `SQL.PostgresError` (built in `./postgres.live` via
+ * Effect-channel wrapper over a Bun `SQL.PostgresError` (built in `./live/postgres` via
  * `instanceof SQL.PostgresError`). The Bun error is retained as `cause` — keeping `detail`/`hint`/
  * `constraint`/`table`/… available for logs — while its SQLSTATE `code` and server `message` ride
  * along directly. `statusCode` is the lone derived field.

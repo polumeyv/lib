@@ -12,10 +12,10 @@
 import { Cause, Context, Effect, Layer, Result } from 'effect';
 import * as S from 'effect/Schema';
 import { type Stripe } from 'stripe';
-import { PaymentMethod } from '../public/types';
+import { PaymentMethod } from '../schemas';
 import { Postgres } from './postgres';
 import { Redis } from './redis';
-import type { UserSub } from '../user/model';
+import type { UserSub } from '../schemas';
 import { ValidationError } from '@polumeyv/lib/error';
 import { StripeService } from './stripe';
 

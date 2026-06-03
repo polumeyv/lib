@@ -1,14 +1,14 @@
 /**
- * @module @polumeyv/utils/server/postgres.live
+ * @module @polumeyv/utils/server/live/postgres
  *
  * The Bun-runtime half of the Postgres service: the `makePostgres` factory that opens a live `SQL`
- * connection pool. Kept separate from `./postgres` (which holds the bun-free `Postgres` tag,
+ * connection pool. Kept separate from `../postgres` (which holds the bun-free `Postgres` tag,
  * `PostgresError`, and impl types) so the tag can be imported from client-reachable graphs without
  * dragging the `bun` builtin into the client bundle. Only server-only layer construction imports this.
  */
 import { SQL } from 'bun';
 import { Effect, Option } from 'effect';
-import { Postgres, PostgresError, type PostgresImpl } from './postgres';
+import { Postgres, PostgresError, type PostgresImpl } from '../postgres';
 
 /**
  * Normalize any throwable into `PostgresError`. A Bun `SQL.PostgresError` hands us its SQLSTATE `code`

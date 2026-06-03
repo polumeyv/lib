@@ -7,6 +7,5 @@
  * client-reachable graph. Import this only from layer construction (`$lib/server/db.ts`, the API
  * runtime), never from `.remote.ts` or component code.
  */
-export { makeRedis } from './redis.live';
-export { makePostgres } from './postgres.live';
-export { makeS3 } from './s3.live';
+export { makeRedis } from './redis';
+export { makePostgres } from './postgres';

@@ -1,16 +1,16 @@
 /**
- * @module @polumeyv/utils/server/redis.live
+ * @module @polumeyv/utils/server/live/redis
  *
  * The Bun-runtime half of the Redis service: the `makeRedis` factory that constructs a live
- * `RedisClient`. Kept separate from `./redis` (which holds the bun-free `Redis` tag, `RedisError`,
+ * `RedisClient`. Kept separate from `../redis` (which holds the bun-free `Redis` tag, `RedisError`,
  * and cache types) so the tag can be imported from client-reachable graphs without dragging the
  * `bun` builtin into the client bundle. Only server-only layer construction imports this entry.
  */
 import { RedisClient, type RedisOptions } from 'bun';
 import { Effect } from 'effect';
 import * as S from 'effect/Schema';
-import { Redis, RedisError, type Cache, type CacheOptions } from './redis';
-import { makeUse } from './use';
+import { Redis, RedisError, type Cache, type CacheOptions } from '../redis';
+import { makeUse } from '../use';
 
 export const makeRedis = (url?: string, options?: RedisOptions) =>
 	Effect.map(

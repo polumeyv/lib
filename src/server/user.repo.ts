@@ -1,8 +1,8 @@
 import { Context, Effect, Layer, Result } from 'effect';
 import * as S from 'effect/Schema';
-import { Postgres, Redis } from '@polumeyv/lib/server';
-import { Email } from '@polumeyv/lib/public/types';
-import { type UserSub, type AuthPayload, UserTable, UserName } from './model';
+import { Postgres } from './postgres';
+import { Redis } from './redis';
+import { Email, type UserSub, UserName, type AuthPayload } from '@polumeyv/lib/schemas';
 
 const NameJson = S.fromJsonString(UserName);
 const NAME_CACHE_TTL = 84_000;
