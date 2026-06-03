@@ -34,7 +34,7 @@
  * (to `ADDRESS_TYPE` literals, etc.) lives in the derived projection — never here.
  */
 import * as S from 'effect/Schema';
-import { Uuid, UserSub, varchar, Email, Phone, Name } from './primitives';
+import { Uuid, UserSub, varchar, Email, Phone, Name, TimeRangeS } from './primitives';
 
 // ── pg ENUM types ─────────────────────────────────────────────────────────--
 /** `us_timezone` enum. */
@@ -311,8 +311,8 @@ export const Hours = S.Struct({
 	id: Uuid,
 	b_id: Uuid,
 	week_day: S.Number.check(S.isBetween({ minimum: 1, maximum: 7 })), // CHECK (week_day BETWEEN 1 AND 7)
-	// JSONB array of open ranges; gaps are breaks. CHECK enforces array + length ≤ 6.
-	ranges: S.Array(S.Struct({ start: S.String, end: S.String })).check(S.isMaxLength(6)),
+	// JSONB array of open ranges `{ start: "HH:MM", dur: "PT<minutes>M" }`; gaps are breaks. CHECK enforces array + length ≤ 6.
+	ranges: S.Array(TimeRangeS).check(S.isMaxLength(6)),
 	updated: S.Date,
 });
 export type Hours = typeof Hours.Type;

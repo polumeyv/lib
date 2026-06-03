@@ -56,9 +56,6 @@ export type BookingUserInfo = typeof BookingUserInfo.Type;
 /** Public projection of a `ProServices` row — the shape returned by GET /book/services/:b_id. */
 export type Service = Pick<ProServices, 'id' | 'type' | 'name' | 'amount' | 'dur'>;
 
-/** A chosen slot on the wire: `startsAt` as `HH:MM:SS`, `dur` as an ISO 8601 duration (`PT{minutes}M`). No table backs it. */
-export type TimeSlot = { startsAt: string; dur: string };
-
 /** Pro-side bookings list/detail: the `bookings` columns (via `ProBookings`) plus the join-only fields —
  *  range bounds as instants, joined service name, resolved customer name. */
 export const Booking = ProBookings.mapFields(Struct.pick(['id', 'sub', 'status', 'amount', 'notes', 'customer_email', 'customer_phone'])).pipe(

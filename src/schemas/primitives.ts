@@ -57,6 +57,39 @@ export const TimeString = S.String.pipe(S.check(S.isPattern(/^\d{2}:\d{2}$/, { m
 /** ISO 8601 wall-clock date-time without zone, `YYYY-MM-DDTHH:MM`. */
 export const DateTimeString = S.String.pipe(S.check(S.isPattern(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, { message: 'Invalid date-time (expected YYYY-MM-DDTHH:MM)' })));
 
+/**
+ * The booking grid: the smallest unit of time the whole booking domain speaks. Every duration (service length,
+ * buffer, open-hours range, generated slot) and every slot start is a multiple of this, so slot arithmetic is exact
+ * and times never fall off the `:00/:05/:10…` grid. Enforced wherever a minute value enters the domain.
+ */
+export const MINUTE_STEP = 5;
+
+/** A non-negative whole-minute duration on the booking grid (a multiple of {@link MINUTE_STEP}). */
+export const GridMinutes = S.Int.pipe(
+	S.check(S.isGreaterThanOrEqualTo(0), S.isMultipleOf(MINUTE_STEP, { message: `Must be in ${MINUTE_STEP}-minute increments` })),
+);
+export type GridMinutes = typeof GridMinutes.Type;
+
+/** ISO 8601 minutes duration `PT<minutes>M` (e.g. `PT45M`) on the booking grid — the wire/storage form for any
+ *  length, with minutes constrained to a multiple of {@link MINUTE_STEP}. */
+export const IsoMinutes = S.String.pipe(
+	S.check(S.isPattern(/^PT\d+M$/, { message: 'Invalid duration (expected PT<minutes>M)' })),
+	S.check(S.makeFilter((s) => Number(s.slice(2, -1)) % MINUTE_STEP === 0, { message: `Duration must be in ${MINUTE_STEP}-minute increments` })),
+);
+export type IsoMinutes = typeof IsoMinutes.Type;
+
+/**
+ * One open/bookable range: an ISO wall-clock `start` (`HH:MM` or `HH:MM:SS`) plus an ISO-8601 minutes `dur`.
+ * The single shape behind a business-hours window, a generated slot, and a held booking — so every consumer
+ * does its time math through `@internationalized/date` (`parseTime` + `parseDuration`) off one definition,
+ * and Postgres reads `start::time` / `dur::interval` directly.
+ */
+export const TimeRangeS = S.Struct({
+	start: S.String.check(S.isPattern(/^\d{2}:\d{2}(:\d{2})?$/, { message: 'Invalid time (expected HH:MM or HH:MM:SS)' })),
+	dur: IsoMinutes,
+});
+export type TimeRange = typeof TimeRangeS.Type;
+
 export const getHostname = (url: string) => new URL(url.includes('://') ? url : `https://${url}`).hostname;
 
 /** Join a name's first + last into a display name, dropping blank/missing parts (no stray spaces).
