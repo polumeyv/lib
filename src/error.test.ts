@@ -42,7 +42,7 @@ describe('resolveError · a raw PostgresError carries a SQLSTATE `code`, not an 
 });
 
 describe('resolveError · status → code fallback (un-tagged, code-less errors)', () => {
-	const cases: [number, string][] = [
+	const cases = [
 		[401, 'UNAUTHORIZED'],
 		[402, 'PAYMENT_REQUIRED'],
 		[404, 'NOT_FOUND'],
@@ -50,7 +50,7 @@ describe('resolveError · status → code fallback (un-tagged, code-less errors)
 		[400, 'INVALID_REQUEST'],
 		[500, 'INTERNAL'],
 		[503, 'INTERNAL'],
-	];
+	] as const;
 	for (const [status, code] of cases) it(`${status} → ${code}`, () => expect(resolveError({ statusCode: status }).code).toBe(code));
 });
 

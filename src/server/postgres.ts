@@ -43,7 +43,6 @@
  *
  * This keeps Postgres → Bun → HTTP → client all speaking JSON end-to-end.
  */
-import type { SQL } from 'bun';
 import { Context, Data, Effect, Option } from 'effect';
 import type { NoSuchElementError } from 'effect/Cause';
 import type { HttpStatusError } from '@polumeyv/lib/error';
@@ -84,11 +83,22 @@ export class PostgresError extends Data.TaggedError('PostgresError')<{ cause?: u
 }
 
 export interface PostgresImpl {
-	use: <T>(fn: (sql: SQL) => T) => Effect.Effect<Awaited<T>, PostgresError, never>;
-
-	first<T extends any[]>(fn: (sql: SQL) => PromiseLike<T>): Effect.Effect<T[number], PostgresError, never>;
-	first<T extends any[]>(fn: (sql: SQL) => PromiseLike<T>, opts: { onNull: 'fail' }): Effect.Effect<NonNullable<T[number]>, PostgresError | NoSuchElementError, never>;
-	first<T extends any[]>(fn: (sql: SQL) => PromiseLike<T>, opts: { onNull: 'option' }): Effect.Effect<Option.Option<NonNullable<T[number]>>, PostgresError, never>;
+	/** Run a query and get the **row set** back, as Postgres returns it. For a single row, apply `firstOrFail` /
+	 *  `firstOption` (below) or destructure `const [row] = …`. */
+	use: <T>(fn: (sql: Bun.SQL) => T) => Effect.Effect<Awaited<T>, PostgresError, never>;
 }
 
 export class Postgres extends Context.Service<Postgres, PostgresImpl>()('Postgres') {}
+
+/**
+ * Cardinality combinators for array-returning queries. `pg.use(…)` returns the row *set* (as Postgres does); these take
+ * the first row visibly at the call site, replacing the old `first` method's `onNull` modes:
+ *  - `firstOrFail` → the first row, failing with `NoSuchElementError` when the set is empty (the 404 path).
+ *  - `firstOption` → the first row as an `Option` (`none` when empty).
+ * Usage: `yield* pg.use((sql) => sql<Row[]>`…`).pipe(firstOrFail)`. (The no-row case is just `const [row] = yield* pg.use(…)`.)
+ */
+export const firstOrFail = <A, E, R>(self: Effect.Effect<readonly A[], E, R>): Effect.Effect<A, E | NoSuchElementError, R> =>
+	Effect.flatMap(self, (rows) => Effect.fromNullishOr(rows[0]));
+
+export const firstOption = <A, E, R>(self: Effect.Effect<readonly A[], E, R>): Effect.Effect<Option.Option<A>, E, R> =>
+	Effect.map(self, (rows) => Option.fromNullishOr(rows[0]));

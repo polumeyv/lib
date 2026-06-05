@@ -6,37 +6,26 @@
  * `PostgresError`, and impl types) so the tag can be imported from client-reachable graphs without
  * dragging the `bun` builtin into the client bundle. Only server-only layer construction imports this.
  */
-import { SQL } from 'bun';
-import { Effect, Option } from 'effect';
+import { Effect } from 'effect';
 import { Postgres, PostgresError, type PostgresImpl } from '../postgres';
 
 /**
- * Normalize any throwable into `PostgresError`. A Bun `SQL.PostgresError` puts the **SQLSTATE** on `.errno`
- * (e.g. `'23P01'`) — `.code` is Bun's own generic tag (`'ERR_POSTGRES_SERVER_ERROR'`), NOT the SQLSTATE — so
- * we read `errno` for the status mapping (the full error stays as `cause`, keeping `detail`/`constraint`/…
- * for logs); anything else (connection drop, sync misuse) becomes a code-less `PostgresError` → status 500.
+ * Normalize any throwable into `PostgresError`. A Bun `SQL.PostgresError` carries the **SQLSTATE** (e.g. `'23P01'`) on
+ * `.sqlState` (newer, typed `string`, purpose-built) or `.errno` (older — typed `number` but holds the SQLSTATE *string*
+ * at runtime; the type-lie tracked in oven-sh/bun#21969). `.code` is Bun's generic tag (`'ERR_POSTGRES_SERVER_ERROR'`),
+ * NOT the SQLSTATE. We read `sqlState ?? errno` — forward-compatible: verified that Bun 1.3.14 populates `errno`, not
+ * `sqlState`, so this picks up `sqlState` once Bun emits it without behaving differently today. The full error stays as
+ * `cause` (keeping `detail`/`constraint`/… for logs); anything else (connection drop, sync misuse) → code-less → 500.
  */
 const toPgError = (cause: unknown): PostgresError =>
-	cause instanceof SQL.PostgresError
-		? new PostgresError({ cause, code: (cause as { errno?: string }).errno ?? cause.code, message: cause.message })
+	cause instanceof Bun.SQL.PostgresError
+		? new PostgresError({
+				cause,
+				code: (cause as { sqlState?: string; errno?: string }).sqlState ?? (cause as { errno?: string }).errno ?? cause.code,
+				message: cause.message,
+			})
 		: new PostgresError({ cause, message: cause instanceof Error ? cause.message : String(cause) });
 
-/**
- * Controls how `null`/`undefined` results from a single-row query are surfaced.
- * Omit the option to keep the raw nullable result (default).
- *  - `'fail'`   → unwraps to `NonNullable<T>`, failing with `NoSuchElementError` when missing.
- *  - `'option'` → wraps the result in `Option<NonNullable<T>>`.
- *
- * `applyOnNull` is the shared helper; any future single-row method on `Postgres`
- * should accept `{ onNull }` and route through it so the option behaves identically everywhere.
- */
-type OnNullMode = 'fail' | 'option';
-
-const applyOnNull = (eff: Effect.Effect<any, any, any>, mode: OnNullMode | undefined): Effect.Effect<any, any, any> => {
-	if (mode === 'fail') return Effect.flatMap(eff, Effect.fromNullishOr);
-	if (mode === 'option') return Effect.map(eff, Option.fromNullishOr);
-	return eff;
-};
 
 /**
  * Discrete connection parameters for the pool — passed directly instead of a single URL so each field is
@@ -57,7 +46,7 @@ export const makePostgres = (config: PostgresConfig) =>
 		Effect.acquireRelease(
 			Effect.try({
 				try: () =>
-					new SQL({
+					new Bun.SQL({
 						hostname: config.hostname,
 						port: Number(config.port),
 						database: config.database,
@@ -73,19 +62,11 @@ export const makePostgres = (config: PostgresConfig) =>
 		),
 		(sql) => {
 			// Sync throw (bad call) and async reject (server/connection error) both funnel through `toPgError`.
-			const use = <T>(fn: (sql: SQL) => T): Effect.Effect<Awaited<T>, PostgresError> =>
-				Effect.flatMap(
-					Effect.try({ try: () => fn(sql), catch: toPgError }),
-					(r) => (r instanceof Promise ? Effect.tryPromise({ try: () => r, catch: toPgError }) : Effect.succeed(r as Awaited<T>)),
+			const use = <T>(fn: (sql: Bun.SQL) => T): Effect.Effect<Awaited<T>, PostgresError> =>
+				Effect.flatMap(Effect.try({ try: () => fn(sql), catch: toPgError }), (r) =>
+					r instanceof Promise ? Effect.tryPromise({ try: () => r, catch: toPgError }) : Effect.succeed(r as Awaited<T>),
 				);
-			const impl: PostgresImpl = {
-				use,
-				first: ((fn: (sql: SQL) => PromiseLike<any>, opts?: { onNull?: OnNullMode }) =>
-					applyOnNull(
-						Effect.map(use(fn), (rows) => rows[0]),
-						opts?.onNull,
-					)) as PostgresImpl['first'],
-			};
+			const impl: PostgresImpl = { use };
 			return Postgres.of(impl);
 		},
 	);

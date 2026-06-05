@@ -21,7 +21,7 @@
  *   key: (sub: typeof UserSub.Type) => `name:${sub}`,
  *   codec: NameJson,
  *   ttl: NAME_CACHE_TTL,
- *   load: (sub) => pg.first<[typeof UserName.Type]>((sql) => sql`SELECT f_name, l_name FROM users WHERE sub = ${sub}`, { onNull: 'fail' }),
+ *   load: (sub) => pg.use((sql) => sql<[typeof UserName.Type]>`SELECT f_name, l_name FROM users WHERE sub = ${sub}`).pipe(firstOrFail),
  *   save: (sub, data) => pg.use((sql) => sql`UPDATE users SET ${sql(data, 'f_name', 'l_name')} WHERE sub = ${sub}`),
  * });
  * const name = yield* names.get(sub);
@@ -30,7 +30,6 @@
  * `cache` is store-agnostic — it coordinates Redis with whatever `load`/`save` you inject.
  * Redis failures and corrupt entries degrade to `load`; a failed cache write never fails the operation.
  */
-import type { RedisClient } from 'bun';
 import { Context, Data, Effect } from 'effect';
 import * as S from 'effect/Schema';
 import type { HttpStatusError } from '@polumeyv/lib/error';
@@ -55,7 +54,7 @@ export interface Cache<Id, A, LE, LR, SE, SR> {
 }
 
 export interface RedisImpl {
-	use: <T>(fn: (client: RedisClient) => T) => Effect.Effect<Awaited<T>, RedisError, never>;
+	use: <T>(fn: (client: Bun.RedisClient) => T) => Effect.Effect<Awaited<T>, RedisError, never>;
 	cache: <Id, A, LE, LR, SA, SE, SR>(opts: CacheOptions<Id, A, LE, LR, SA, SE, SR>) => Cache<Id, A, LE, LR, SE, SR>;
 }
 

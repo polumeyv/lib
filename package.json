@@ -22,6 +22,7 @@
 		"oauth"
 	],
 	"scripts": {
+		"check": "tsc --noEmit",
 		"generate-jwt-keys": "bun bin/generate-jwt-keys.mjs",
 		"release": "npx changelogen --release --push"
 	},

@@ -372,11 +372,13 @@ export type ProUnavailability = typeof ProUnavailability.Type;
 export const Bookings = S.Struct({
 	id: Uuid,
 	b_id: Uuid,
-	sub: UserSub,
+	sub: S.NullOr(UserSub), // NULL while held (no guest row yet); set on confirm
 	service_id: Uuid,
 	pro_id: S.NullOr(Uuid),
 	customer_email: S.NullOr(varchar(255)),
 	customer_phone: S.NullOr(varchar(50)),
+	data: S.Record(S.String, S.Unknown), // held: collected contact fields { fn, ln, em, ph, … }; consumed into the guest on confirm
+	cs_id: S.NullOr(varchar(255)), // held: Stripe CheckoutSession id
 	time_slot: S.String, // TSTZRANGE
 	status: S.Number, // SMALLINT REFERENCES booking_statuses(id)
 	amount: S.Number, // cents
@@ -401,30 +403,9 @@ export const StripeCustomers = S.Struct({
 export type StripeCustomers = typeof StripeCustomers.Type;
 
 // =============================================================================
-// SESSIONS / HOLDS / GUESTS
+// GUESTS
+// (Booking holds are no longer a separate table — a hold is a `bookings` row with status `held`; see `Bookings` above.)
 // =============================================================================
-
-export const Sessions = S.Struct({
-	session_id: Uuid,
-	b_id: Uuid,
-	pro_id: S.NullOr(Uuid),
-	service_id: S.NullOr(Uuid),
-	data: S.Record(S.String, S.Unknown), // JSONB keyed by field code: { fn, ln, em, ph, ad, nt, … }
-	cs_id: S.NullOr(varchar(255)), // Stripe CheckoutSession id
-	expires: S.Date,
-	updated: S.Date,
-});
-export type Sessions = typeof Sessions.Type;
-
-export const SlotHolds = S.Struct({
-	hold_id: Uuid,
-	session_id: Uuid,
-	b_id: Uuid,
-	pro_id: S.NullOr(Uuid),
-	time_slot: S.String, // TSTZRANGE
-	expires: S.Date,
-});
-export type SlotHolds = typeof SlotHolds.Type;
 
 export const Guests = S.Struct({
 	guest_id: Uuid,

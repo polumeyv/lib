@@ -6,17 +6,16 @@
  * and cache types) so the tag can be imported from client-reachable graphs without dragging the
  * `bun` builtin into the client bundle. Only server-only layer construction imports this entry.
  */
-import { RedisClient, type RedisOptions } from 'bun';
 import { Effect } from 'effect';
 import * as S from 'effect/Schema';
 import { Redis, RedisError, type Cache, type CacheOptions } from '../redis';
 import { makeUse } from '../use';
 
-export const makeRedis = (url?: string, options?: RedisOptions) =>
+export const makeRedis = (url?: string, options?: Bun.RedisOptions) =>
 	Effect.map(
 		Effect.acquireRelease(
 			Effect.try({
-				try: () => new RedisClient(url, options),
+				try: () => new Bun.RedisClient(url, options),
 				catch: (e) => new RedisError({ cause: e, message: 'Error Connecting' }),
 			}),
 			(client) => Effect.sync(() => client.close()),

@@ -13,7 +13,7 @@ import { Cause, Context, Effect, Layer, Result } from 'effect';
 import * as S from 'effect/Schema';
 import { type Stripe } from 'stripe';
 import { PaymentMethod } from '../schemas';
-import { Postgres } from './postgres';
+import { Postgres, firstOrFail } from './postgres';
 import { Redis } from './redis';
 import type { UserSub } from '../schemas';
 import { ValidationError } from '@polumeyv/lib/error';
@@ -71,7 +71,7 @@ export class StripeCustomerService extends Context.Service<StripeCustomerService
 
 		const getCustomerFromDb = (sub: typeof UserSub.Type) =>
 			Effect.map(
-				pg.first((sql) => sql`SELECT stripe_cus_id, email FROM users WHERE sub = ${sub}`, { onNull: 'fail' }),
+				pg.use((sql) => sql<{ stripe_cus_id: string | null; email: string }[]>`SELECT stripe_cus_id, email FROM users WHERE sub = ${sub}`).pipe(firstOrFail),
 				(row): Result.Result<string, string> => (row.stripe_cus_id != null ? Result.succeed(row.stripe_cus_id) : Result.fail(row.email)),
 			);
 		const getCustomer = <U extends StripeCustomerUser>(user: U) =>
