@@ -72,7 +72,7 @@ export type ClientStatus = typeof CLIENT_STATUS.Type;
 export const SERVICE_TYPE = S.Literals(['service', 'addon']);
 export type ServiceType = typeof SERVICE_TYPE.Type;
 
-export const BOOKING_STATUS = S.Literals(['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show']);
+export const BOOKING_STATUS = S.Literals(['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show', 'held']);
 export type BookingStatus = typeof BOOKING_STATUS.Type;
 
 export const PAYOUT_SCHEDULE = S.Literals(['daily', 'weekly', 'biweekly', 'monthly']);

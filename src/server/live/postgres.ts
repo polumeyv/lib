@@ -11,13 +11,14 @@ import { Effect, Option } from 'effect';
 import { Postgres, PostgresError, type PostgresImpl } from '../postgres';
 
 /**
- * Normalize any throwable into `PostgresError`. A Bun `SQL.PostgresError` hands us its SQLSTATE `code`
- * and server `message` directly (the full error stays as `cause`, keeping `detail`/`hint`/`constraint`/…
+ * Normalize any throwable into `PostgresError`. A Bun `SQL.PostgresError` puts the **SQLSTATE** on `.errno`
+ * (e.g. `'23P01'`) — `.code` is Bun's own generic tag (`'ERR_POSTGRES_SERVER_ERROR'`), NOT the SQLSTATE — so
+ * we read `errno` for the status mapping (the full error stays as `cause`, keeping `detail`/`constraint`/…
  * for logs); anything else (connection drop, sync misuse) becomes a code-less `PostgresError` → status 500.
  */
 const toPgError = (cause: unknown): PostgresError =>
 	cause instanceof SQL.PostgresError
-		? new PostgresError({ cause, code: cause.code, message: cause.message })
+		? new PostgresError({ cause, code: (cause as { errno?: string }).errno ?? cause.code, message: cause.message })
 		: new PostgresError({ cause, message: cause instanceof Error ? cause.message : String(cause) });
 
 /**

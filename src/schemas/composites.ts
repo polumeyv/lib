@@ -12,36 +12,10 @@
  * *projection*; a composite is the one with no canonical table behind it (e.g. a contact form — there is
  * no `contacts` table).
  */
-import { Struct } from 'effect';
+import { Struct, Effect, SchemaTransformation } from 'effect';
 import * as S from 'effect/Schema';
 import { Email, Phone } from './primitives';
-import { UserName, ProBookings, type ProServices } from './projections';
-
-/**
- * Contact form. The `subject`/`social_platform` value sets are inlined as `S.Literals` — consumers that
- * need the raw arrays read them back off the schema (`ContactS.fields.subject.literals`,
- * `ContactS.fields.social_platform.literals`) rather than importing a separate const.
- */
-export const ContactS = S.Struct({
-	...UserName.fields,
-	email: S.optional(Email),
-	phone: S.optional(Phone),
-	message: S.String.pipe(
-		S.check(S.isMinLength(2, { message: 'Message must be at least 2 characters' }), S.isMaxLength(300, { message: 'Message must be at most 300 characters' })),
-	),
-	subject: S.Literals(['General Inquiry', 'Appointment Question', 'Feedback']),
-	social_platform: S.Literals(['instagram', 'x', 'linkedin', 'other']),
-	social: S.optional(S.String),
-})
-	.mapFields(Struct.map(S.mutableKey))
-	.pipe(
-		S.check(
-			S.makeFilter((d) => !!(d.email || d.phone), {
-				message: 'Please provide an email or phone number so we can reach you.',
-			}),
-		),
-	);
-export type ContactData = typeof ContactS.Type;
+import { UserName, DomainRow, ProBookings } from './projections';
 
 // ── Booking domain ───────────────────────────────────────────────────────────
 
@@ -53,8 +27,9 @@ export const BookingUserInfo = S.Struct({
 });
 export type BookingUserInfo = typeof BookingUserInfo.Type;
 
-/** Public projection of a `ProServices` row — the shape returned by GET /book/services/:b_id. */
-export type Service = Pick<ProServices, 'id' | 'type' | 'name' | 'amount' | 'dur'>;
+// The public booking *API contract* (`Service`, `BookingFinancials`, the request/response schemas) is owned by
+// polumeyv-pro and lives in `@polumeyv/pro-api` — not here, since `shared/lib` is for cross-product primitives, not one
+// product's endpoints. `BookingUserInfo` stays: it's a reusable contact-info shape, and `@polumeyv/pro-api` composes it.
 
 /** Pro-side bookings list/detail: the `bookings` columns (via `ProBookings`) plus the join-only fields —
  *  range bounds as instants, joined service name, resolved customer name. */
@@ -82,3 +57,25 @@ export const UserBookingRow = ProBookings.mapFields(Struct.pick(['id', 'b_id', '
 	}),
 );
 export type UserBookingRow = typeof UserBookingRow.Type;
+
+/** Email local-part naming styles for a domain's mailboxes (e.g. `fn.ln` → `james.smith`). The runtime map
+ *  with label/example/derive logic lives in `@cresends/utils`; this is the canonical value set. */
+export const LocalPartStyle = S.Literals(['fn.ln', 'fi.ln', 'fn.li', 'fn', 'fnln']);
+export type LocalPartStyle = typeof LocalPartStyle.Type;
+
+/** A domain as submitted on the cresends order form: `name`/`provider` off the domain view plus the
+ *  order-only fields (optional forwarding URL, the requested mailbox names, and the local-part style). */
+export const OrderSchema = DomainRow.mapFields(Struct.pick(['name', 'provider'])).pipe(
+	S.fieldsAssign({
+		forwarding_url: S.optional(
+			S.String.pipe(
+				S.decodeTo(S.String, SchemaTransformation.transform({ decode: (s) => (s.match(/^https?:\/\//) ? s : `https://${s}`), encode: (s) => s })),
+				S.check(S.isPattern(/^https?:\/\/([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(\/[\w.-]*)*\/?$/, { message: 'Invalid URL' })),
+				S.check(S.isMaxLength(255)),
+			),
+		),
+		names: S.Array(UserName).pipe(S.withDecodingDefaultType(Effect.succeed([] as readonly (typeof UserName.Type)[]))),
+		local_part_style: LocalPartStyle.pipe(S.withDecodingDefaultType(Effect.succeed('fn.ln' as const))),
+	}),
+);
+export type OrderSchema = typeof OrderSchema.Type;

@@ -6,7 +6,7 @@
  * - `DateFormatter` renders JS `Date`s; for plain `HH:MM` we pin both the instant and the formatter to
  *   UTC so the displayed hour/minute matches the input on any runtime.
  */
-import { parseTime, CalendarDate, CalendarDateTime, toCalendarDateTime, DateFormatter } from '@internationalized/date';
+import { parseTime, CalendarDate, toCalendarDateTime, DateFormatter } from '@internationalized/date';
 
 /** ISO 8601 "HH:MM" wall-clock → a UTC instant on the reference day, ready for the UTC formatter. */
 const timeToDate = (time: string) => toCalendarDateTime(new CalendarDate(1970, 1, 1), parseTime(time)).toDate('UTC');
@@ -19,8 +19,7 @@ export const formatTimeDisplay = (time: string) => timeFormatter.format(timeToDa
 /** ISO "HH:MM" pair → "9:30 – 10:15 AM" (locale-aware range). */
 export const formatTimeRange = (start: string, end: string) => timeFormatter.formatRange(timeToDate(start), timeToDate(end));
 
-/** Wall-clock components in `tz` → "Monday, January 1, 2024 at 9:30 AM EST".
- *  `CalendarDateTime(...).toDate(tz)` interprets the components as wall-clock time in `tz`. */
+/** A `Date` instant rendered in the business `tz` → "Monday, January 1, 2024 at 9:30 AM EST". */
 const bookingDateTimeFormatter = (tz: string) =>
 	new DateFormatter('en-US', {
 		weekday: 'long',
@@ -33,5 +32,5 @@ const bookingDateTimeFormatter = (tz: string) =>
 		timeZoneName: 'short',
 	});
 
-export const formatBookingDateTime = (year: number, month: number, day: number, h: number, m: number, tz: string) =>
-	bookingDateTimeFormatter(tz).format(new CalendarDateTime(year, month, day, h, m).toDate(tz));
+/** A booking instant (the slot's start) + business `tz` → "Monday, January 1, 2024 at 9:30 AM EST". */
+export const formatBookingDateTime = (date: Date, tz: string) => bookingDateTimeFormatter(tz).format(date);

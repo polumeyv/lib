@@ -13,7 +13,7 @@
  * `tables.Users` assigns it to `f_name`/`l_name` → here we `pick` those two back out as a reusable group.
  */
 import * as S from 'effect/Schema';
-import { Struct } from 'effect';
+import { Struct, SchemaTransformation } from 'effect';
 import * as Tables from './tables';
 
 /** `users(sub, email)` — the minimal identity slice. */
@@ -34,6 +34,31 @@ export type UserName = typeof UserName.Type;
 /** Card summary surfaced to clients — not a table column, a Stripe-derived shape. */
 export const PaymentMethod = S.NullOr(S.Struct({ brand: S.String, last4: S.String }));
 export type PaymentMethod = typeof PaymentMethod.Type;
+
+/**
+ * App-facing view of a cresends `domains` row: the columns the UI actually renders plus the computed
+ * `has_dns`/`ns_pointed` flags (derived from the DNS lookup / `ns_check`, not stored as plain columns).
+ * `name` normalizes to lowercase and is validated as a hostname; `provider` reuses the canonical enum.
+ */
+export const DomainRow = S.Struct({
+	id: S.Number,
+	name: S.String.pipe(
+		S.decodeTo(S.String.check(S.isLowercased()), SchemaTransformation.toLowerCase()),
+		S.check(S.isMaxLength(253)),
+		S.check(
+			S.isPattern(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/, {
+				message: 'Please enter a valid domain name (e.g. example.com)',
+			}),
+		),
+	),
+	provider: Tables.CRESENDS_PROVIDER_TYPE,
+	provisioned: S.Boolean,
+	created_at: S.Date,
+	has_dns: S.Boolean,
+	ns_pointed: S.Boolean,
+});
+export type DomainRow = typeof DomainRow.Type;
+export type ProviderType = typeof DomainRow.Type.provider;
 
 // ── Pro-app DB projections ───────────────────────────────────────────────────
 // App-contract views of the canonical tables: lookup-id columns surfaced as their
