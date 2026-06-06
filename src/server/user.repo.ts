@@ -1,36 +1,17 @@
 import { Context, Effect, Layer, Result } from 'effect';
-import * as S from 'effect/Schema';
 import { Postgres, firstOrFail } from './postgres';
-import { Redis } from './redis';
 import { Email, type UserSub, UserName, type AuthPayload } from '@polumeyv/lib/schemas';
-
-const NameJson = S.fromJsonString(UserName);
-const NAME_CACHE_TTL = 84_000;
 
 export class BaseUserRepository extends Context.Service<BaseUserRepository>()('BaseUserRepository', {
 	make: Effect.gen(function* () {
 		const pg = yield* Postgres;
-		const redis = yield* Redis;
 
+		// A name is a single indexed point lookup — not worth caching, so read straight from Postgres.
 		const getName = (sub: UserSub) =>
-			Effect.andThen(
-				redis.use((c) => c.get(`name:${sub}`)),
-				(json) =>
-					json
-						? S.decodeEffect(NameJson)(json)
-						: Effect.tap(
-								pg.use((sql) => sql<[typeof UserName.Type]>`SELECT f_name, l_name FROM users WHERE sub = ${sub}`).pipe(firstOrFail),
-								(data) => Effect.andThen(S.encodeEffect(NameJson)(data), (encoded) => redis.use((c) => c.setex(`name:${sub}`, NAME_CACHE_TTL, encoded))),
-							),
-			);
+			pg.use((sql) => sql<[typeof UserName.Type]>`SELECT f_name, l_name FROM users WHERE sub = ${sub}`).pipe(firstOrFail);
 
 		const updateName = (sub: UserSub, data: typeof UserName.Type) =>
-			Effect.andThen(S.encodeEffect(NameJson)(data), (json) =>
-				Effect.all([
-					pg.use((sql) => sql`UPDATE users SET ${sql(data, 'f_name', 'l_name')} WHERE sub = ${sub}`),
-					redis.use((c) => c.setex(`name:${sub}`, NAME_CACHE_TTL, json)),
-				]),
-			);
+			pg.use((sql) => sql`UPDATE users SET ${sql(data, 'f_name', 'l_name')} WHERE sub = ${sub}`);
 
 		return {
 			getCustomerFromDb: (sub: UserSub) =>
