@@ -30,6 +30,7 @@
 		"generate-jwt-keys": "./bin/generate-jwt-keys.mjs"
 	},
 	"type": "module",
+	"sideEffects": false,
 	"files": [
 		"src",
 		"bin"
@@ -47,9 +48,65 @@
 			"types": "./src/server/live/index.ts",
 			"default": "./src/server/live/index.ts"
 		},
+		"./server/postgres": {
+			"types": "./src/server/postgres.ts",
+			"default": "./src/server/postgres.ts"
+		},
+		"./server/redis": {
+			"types": "./src/server/redis.ts",
+			"default": "./src/server/redis.ts"
+		},
+		"./server/stripe": {
+			"types": "./src/server/stripe.ts",
+			"default": "./src/server/stripe.ts"
+		},
+		"./server/idp-client": {
+			"types": "./src/server/idp-client.ts",
+			"default": "./src/server/idp-client.ts"
+		},
+		"./server/user.repo": {
+			"types": "./src/server/user.repo.ts",
+			"default": "./src/server/user.repo.ts"
+		},
+		"./server/crypto": {
+			"types": "./src/server/crypto.ts",
+			"default": "./src/server/crypto.ts"
+		},
+		"./server/alert": {
+			"types": "./src/server/alert.ts",
+			"default": "./src/server/alert.ts"
+		},
+		"./server/sms": {
+			"types": "./src/server/sms.ts",
+			"default": "./src/server/sms.ts"
+		},
+		"./server/customer": {
+			"types": "./src/server/customer.ts",
+			"default": "./src/server/customer.ts"
+		},
+		"./server/error-reporter": {
+			"types": "./src/server/error-reporter.ts",
+			"default": "./src/server/error-reporter.ts"
+		},
 		"./schemas": {
 			"types": "./src/schemas/index.ts",
 			"default": "./src/schemas/index.ts"
+		},
+		"./schemas/primitives": {
+			"types": "./src/schemas/primitives.ts",
+			"default": "./src/schemas/primitives.ts"
+		},
+		"./schemas/tables": {
+			"types": "./src/schemas/tables.ts",
+			"default": "./src/schemas/tables.ts"
+		},
+		"./schemas/projections": {
+			"types": "./src/schemas/projections.ts",
+			"default": "./src/schemas/projections.ts"
+		},
+		"./schemas/composites": {
+			"types": "./src/schemas/composites.ts",
+			"default": "./src/schemas/composites.ts"
 		},
 		"./public": {
 			"types": "./src/public/index.ts",
