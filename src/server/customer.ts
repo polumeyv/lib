@@ -9,7 +9,7 @@
  * a sentinel value `0` recording a temporary Stripe outage to avoid retry storms.
  */
 
-import { Cause, Context, Effect, Layer, Result } from 'effect';
+import { Array as Arr, Cause, Context, Effect, Layer, Result } from 'effect';
 import * as S from 'effect/Schema';
 import { type Stripe } from 'stripe';
 import { PaymentMethod } from '../schemas';
@@ -71,7 +71,7 @@ export class StripeCustomerService extends Context.Service<StripeCustomerService
 
 		const getCustomerFromDb = (sub: typeof UserSub.Type) =>
 			Effect.map(
-				pg.use((sql) => sql<{ stripe_cus_id: string | null; email: string }[]>`SELECT stripe_cus_id, email FROM users WHERE sub = ${sub}`).pipe(Effect.flatMap((rows) => Effect.fromNullishOr(rows[0]))),
+				pg.use((sql) => sql<{ stripe_cus_id: string | null; email: string }[]>`SELECT stripe_cus_id, email FROM users WHERE sub = ${sub}`).pipe(Effect.flatMap((rows) => Effect.fromOption(Arr.head(rows)))),
 				(row): Result.Result<string, string> => (row.stripe_cus_id != null ? Result.succeed(row.stripe_cus_id) : Result.fail(row.email)),
 			);
 		const getCustomer = <U extends StripeCustomerUser>(user: U) =>

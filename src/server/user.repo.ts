@@ -18,7 +18,7 @@ export class BaseUserRepository extends Context.Service<BaseUserRepository>()('B
 		const getName = (sub: UserSub) =>
 			pg
 				.use((sql) => sql<UserName[]>`SELECT f_name, l_name FROM users WHERE sub = ${sub}`)
-				.pipe(Effect.flatMap((rows) => Effect.fromNullishOr(rows[0])));
+				.pipe(Effect.flatMap((rows) => Effect.fromOption(Arr.head(rows))));
 
 		const updateName = (sub: UserSub, data: UserName) => pg.use((sql) => sql`UPDATE users SET ${sql(data)} WHERE sub = ${sub}`);
 
@@ -29,7 +29,7 @@ export class BaseUserRepository extends Context.Service<BaseUserRepository>()('B
 			getAuthPayload: (sub: UserSub) =>
 				pg
 					.use((sql) => sql<AuthPayload[]>`SELECT sub, email, (terms_acc IS NOT NULL) AS terms_acc FROM users WHERE sub = ${sub}`)
-					.pipe(Effect.flatMap((rows) => Effect.fromNullishOr(rows[0]))),
+					.pipe(Effect.flatMap((rows) => Effect.fromOption(Arr.head(rows)))),
 
 			lookupUser: (email: Email) =>
 				pg
