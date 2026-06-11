@@ -103,11 +103,14 @@ export class IdpClient extends Context.Service<IdpClient>()('app/IdpClient', {
 						// processDiscoveryResponse binds the response issuer to `publicAuthUrl`.
 						const as = yield* Effect.tryPromise({
 							try: () =>
-								oauth.discoveryRequest(opts.publicAuthUrl, { algorithm: 'oauth2', ...httpOpts }).then((res) => oauth.processDiscoveryResponse(opts.publicAuthUrl, res)),
-							catch: (cause) => new IdpClientError({ cause, message: cause instanceof Error ? cause.message : 'IdP discovery failed' }),
+								oauth
+									.discoveryRequest(opts.publicAuthUrl, { algorithm: 'oauth2', ...httpOpts })
+									.then((res) => oauth.processDiscoveryResponse(opts.publicAuthUrl, res)),
+							catch: (cause) => new IdpClientError({ cause, message: Error.isError(cause) ? cause.message : 'IdP discovery failed' }),
 						}).pipe(Effect.retry(Schedule.both(Schedule.exponential('300 millis'), Schedule.recurs(6))));
 
-						if (!as.authorization_endpoint) return yield* new IdpClientError({ message: 'IdP discovery doc has no authorization_endpoint' });
+						if (!as.authorization_endpoint)
+							return yield* new IdpClientError({ message: 'IdP discovery doc has no authorization_endpoint' });
 						if (!as.jwks_uri) return yield* new IdpClientError({ message: 'IdP discovery doc has no jwks_uri' });
 
 						const resolved: ResolvedIdp = {
@@ -131,24 +134,27 @@ export class IdpClient extends Context.Service<IdpClient>()('app/IdpClient', {
 		 */
 		const exchangeCode = <T extends JWTPayload = JWTPayload>(callbackUrl: URL, codeVerifier: string) =>
 			Effect.andThen(
-				Effect.annotateLogs(Effect.logInfo('idp exchangeCode'), { callbackUrl: callbackUrl.toString(), hasVerifier: codeVerifier.length > 0 }),
-				Effect.flatMap(getResolved, ({ as, client, clientAuth }) =>
-				Effect.tryPromise({
-					try: () =>
-						((params) =>
-							oauth
-								.authorizationCodeGrantRequest(as, client, clientAuth, params, opts.redirectUri, codeVerifier, httpOpts)
-								.then((res) => oauth.processAuthorizationCodeResponse(as, client, res))
-								.then((tokens) => {
-									// our IdP issues both tokens on every grant, so a missing refresh_token is a real fault, not a default-to-'' case
-									if (!tokens.refresh_token) throw new Error('IdP token response is missing refresh_token');
-									setToken('access_token', tokens.access_token);
-									setToken('refresh_token', tokens.refresh_token);
-									return decodeJwt(tokens.access_token) as T;
-								}))(oauth.validateAuthResponse(as, client, callbackUrl)),
-
-					catch: (cause) => new IdpClientError({ cause, message: cause instanceof Error ? cause.message : 'Token exchange failed' }),
+				Effect.annotateLogs(Effect.logInfo('idp exchangeCode'), {
+					callbackUrl: callbackUrl.toString(),
+					hasVerifier: codeVerifier.length > 0,
 				}),
+				Effect.flatMap(getResolved, ({ as, client, clientAuth }) =>
+					Effect.tryPromise({
+						try: () =>
+							((params) =>
+								oauth
+									.authorizationCodeGrantRequest(as, client, clientAuth, params, opts.redirectUri, codeVerifier, httpOpts)
+									.then((res) => oauth.processAuthorizationCodeResponse(as, client, res))
+									.then((tokens) => {
+										// our IdP issues both tokens on every grant, so a missing refresh_token is a real fault, not a default-to-'' case
+										if (!tokens.refresh_token) throw new Error('IdP token response is missing refresh_token');
+										setToken('access_token', tokens.access_token);
+										setToken('refresh_token', tokens.refresh_token);
+										return decodeJwt(tokens.access_token) as T;
+									}))(oauth.validateAuthResponse(as, client, callbackUrl)),
+
+						catch: (cause) => new IdpClientError({ cause, message: Error.isError(cause) ? cause.message : 'Token exchange failed' }),
+					}),
 				),
 			);
 
@@ -158,7 +164,10 @@ export class IdpClient extends Context.Service<IdpClient>()('app/IdpClient', {
 		 * clear error when it's absent (expired, replayed, or cross-site arrival) — delete it, exchange the code (which
 		 * persists the token cookies via the fixed policy), then delegate the decoded claims to `onSignedIn`.
 		 */
-		const handleCallback = <T extends JWTPayload = JWTPayload, A = never, E = never, R = never>(callbackUrl: URL, onSignedIn: (claims: T) => Effect.Effect<A, E, R>) =>
+		const handleCallback = <T extends JWTPayload = JWTPayload, A = never, E = never, R = never>(
+			callbackUrl: URL,
+			onSignedIn: (claims: T) => Effect.Effect<A, E, R>,
+		) =>
 			Effect.gen(function* () {
 				const jar = opts.cookies();
 				const codeVerifier = jar.get('pkce_ver');
@@ -194,7 +203,7 @@ export class IdpClient extends Context.Service<IdpClient>()('app/IdpClient', {
 			Effect.flatMap(getResolved, ({ as, client, clientAuth }) =>
 				Effect.tryPromise({
 					try: () => oauth.revocationRequest(as, client, clientAuth, token, httpOpts).then(oauth.processRevocationResponse),
-					catch: (cause) => new IdpClientError({ cause, message: cause instanceof Error ? cause.message : 'Revoke request failed' }),
+					catch: (cause) => new IdpClientError({ cause, message: Error.isError(cause) ? cause.message : 'Revoke request failed' }),
 				}),
 			);
 
@@ -264,7 +273,10 @@ export class IdpClient extends Context.Service<IdpClient>()('app/IdpClient', {
 }) {
 	/** Primary layer (v4 convention): the app supplies discovery params + the per-request cookie accessor; `scope` defaults. Discovery is lazy; consumers call `ready` at boot to fail-fast (see `make`). */
 	static layer = (opts: Omit<IdpClientOptions, 'scope'> & { scope?: string }) =>
-		Layer.provide(Layer.effect(IdpClient, IdpClient.make), Layer.succeed(IdpClientConfig, { ...opts, scope: opts.scope ?? 'profile email' }));
+		Layer.provide(
+			Layer.effect(IdpClient, IdpClient.make),
+			Layer.succeed(IdpClientConfig, { ...opts, scope: opts.scope ?? 'profile email' }),
+		);
 }
 
 /**

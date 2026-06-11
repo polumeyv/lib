@@ -1,22 +1,3 @@
-/**
- * @module @polumeyv/utils/server/sms
- *
- * Effect-bridged Telnyx SMS client. Apps provide `SmsConfig`; the service wraps the single
- * `POST /v2/messages` call. When `enabled: false` (e.g. dev), `send` logs and resolves to
- * `{ success: false }` instead of hitting the network.
- *
- * ```ts
- * // app db.ts:
- * Layer.provideMerge(
- *     Layer.mergeAll(SmsService.layer, …),
- *     Layer.succeed(SmsConfig, { apiKey, phoneNumber, messagingProfileId, enabled: !dev }),
- * );
- *
- * // any service:
- * const sms = yield* SmsService;
- * yield* sms.send({ to: '+15551234567', message: 'Hello!' });
- * ```
- */
 import { Context, Data, Effect, Layer } from 'effect';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 

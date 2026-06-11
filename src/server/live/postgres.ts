@@ -24,8 +24,7 @@ const toPgError = (cause: unknown): PostgresError =>
 				code: (cause as { sqlState?: string; errno?: string }).sqlState ?? (cause as { errno?: string }).errno ?? cause.code,
 				message: cause.message,
 			})
-		: new PostgresError({ cause, message: cause instanceof Error ? cause.message : String(cause) });
-
+		: new PostgresError({ cause, message: Error.isError(cause) ? cause.message : String(cause) });
 
 /**
  * Discrete connection parameters for the pool — passed directly instead of a single URL so each field is

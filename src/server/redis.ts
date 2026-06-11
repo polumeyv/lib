@@ -1,35 +1,3 @@
-/**
- * @module @polumeyv/utils/server/redis
- *
- * Effect-based Redis client using Bun's native `RedisClient`.
- *
- * Exports:
- *  - `Redis`      — Context tag
- *  - `RedisError` — Tagged error
- *  - `makeRedis`  — Factory: `(url?, options?) => Effect<Redis>` (scoped — acquires connection, closes on scope end)
- *
- * The `Redis` service exposes:
- *  - `use`   — run any command against the raw client.
- *  - `cache` — build a typed cache-aside `{ get, set }` over Redis + an injected backing store.
- *
- * @example
- * ```ts
- * const redis = yield* Redis;
- * const value = yield* redis.use((c) => c.get('key'));
- *
- * const names = redis.cache({
- *   key: (sub: typeof UserSub.Type) => `name:${sub}`,
- *   codec: NameJson,
- *   ttl: NAME_CACHE_TTL,
- *   load: (sub) => pg.use((sql) => sql<[typeof UserName.Type]>`SELECT f_name, l_name FROM users WHERE sub = ${sub}`).pipe(firstOrFail),
- *   save: (sub, data) => pg.use((sql) => sql`UPDATE users SET ${sql(data, 'f_name', 'l_name')} WHERE sub = ${sub}`),
- * });
- * const name = yield* names.get(sub);
- * ```
- *
- * `cache` is store-agnostic — it coordinates Redis with whatever `load`/`save` you inject.
- * Redis failures and corrupt entries degrade to `load`; a failed cache write never fails the operation.
- */
 import { Context, Data, Effect } from 'effect';
 import * as S from 'effect/Schema';
 import type { HttpStatusError } from '@polumeyv/lib/error';

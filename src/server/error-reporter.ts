@@ -4,7 +4,7 @@ setInterval(() => reported.clear(), 5 * 60 * 1000);
 export function reportError(opts: { repo: string; token: string; error: unknown; route: string | null; url: string; status: number }) {
 	if (opts.status === 404) return;
 	const id = Bun.randomUUIDv7();
-	const err = opts.error instanceof Error ? opts.error : new Error(String(opts.error));
+	const err = Error.isError(opts.error) ? opts.error : new Error(String(opts.error));
 	console.error(`[server-error] ${id}`, err);
 
 	const title = `[Production Error] ${err.message.slice(0, 120)}`;

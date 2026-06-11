@@ -57,14 +57,15 @@
 		}
 	},
 	"peerDependencies": {
-		"effect": "4.0.0-beta.70",
+		"effect": "4.0.0-beta.78",
 		"@internationalized/date": "3.12.1"
 	},
 	"dependencies": {
+		"@aws-sdk/client-sesv2": "^3.1062.0",
 		"@internationalized/date": "^3.12.0",
 		"cookie": "^1.1.1",
 		"jose": "^6.2.2",
 		"oauth4webapi": "^3.8.6",
-		"stripe": "^22.1.1"
+		"stripe": "^22.2.0"
 	}
 }

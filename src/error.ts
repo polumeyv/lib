@@ -12,7 +12,16 @@ export interface HttpStatusError {
  * it to copy + behavior). Postgres-style stable strings; never leak internal tag names like `NoSuchElementError` over the
  * wire. `BAD_RESPONSE` is client-only (a 2xx whose body failed to decode); `INTERNAL` is the catch-all.
  */
-export const ERROR_CODES = ['SESSION_EXPIRED', 'SLOT_TAKEN', 'PAYMENT_REQUIRED', 'INVALID_REQUEST', 'NOT_FOUND', 'UNAUTHORIZED', 'BAD_RESPONSE', 'INTERNAL'] as const;
+export const ERROR_CODES = [
+	'SESSION_EXPIRED',
+	'SLOT_TAKEN',
+	'PAYMENT_REQUIRED',
+	'INVALID_REQUEST',
+	'NOT_FOUND',
+	'UNAUTHORIZED',
+	'BAD_RESPONSE',
+	'INTERNAL',
+] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 /** Narrow an unknown wire value to a known `ErrorCode` (e.g. a `body.code` from an error response). */
 export const isErrorCode = (v: unknown): v is ErrorCode => typeof v === 'string' && (ERROR_CODES as readonly string[]).includes(v);
@@ -34,19 +43,17 @@ export class Unauthorized extends Data.TaggedError('Unauthorized')<{ readonly me
 	}
 }
 /** Expired or missing session (Redis key gone). Surfaces as 401; route boundaries catch it to bounce to sign-in / `invalid_grant`. */
-export class SessionExpiredError extends Data.TaggedError('SessionExpiredError')<{ cause?: unknown; message?: string }> implements HttpStatusError {
+export class SessionExpiredError
+	extends Data.TaggedError('SessionExpiredError')<{ cause?: unknown; message?: string }>
+	implements HttpStatusError
+{
 	readonly statusCode = 401 as const;
 	readonly code = 'SESSION_EXPIRED' as const;
 	constructor(args: { cause?: unknown; message?: string } = {}) {
 		super({ message: 'Your session has expired, please try again', ...args });
 	}
 }
-export class Redirect extends Data.TaggedError('Redirect')<{ readonly status: RedirectStatus; readonly location: string | URL }> {
-	constructor(arg?: string | { readonly status?: RedirectStatus; readonly location?: string | URL }) {
-		const args = typeof arg === 'string' ? { location: arg } : (arg ?? {});
-		super({ status: args.status ?? 303, location: args.location ?? '/' });
-	}
-}
+export class Redirect extends Data.TaggedError('Redirect')<{ readonly status: RedirectStatus; readonly location: string | URL }> {}
 
 /** Framework/Effect tags that carry no `code` of their own → their `{ status, code }`. The one place tag→status lives. */
 const EFFECT_TAG: Record<string, { status: number; code: ErrorCode }> = {
@@ -62,7 +69,17 @@ const EFFECT_TAG: Record<string, { status: number; code: ErrorCode }> = {
 /** Last-resort code from a bare status, for errors with neither an explicit `code` nor a known tag (e.g. a raw `PostgresError`:
  *  a 23xx exclusion/constraint violation arrives as 409 → `SLOT_TAKEN`; that's the only 409 the booking endpoints produce). */
 const codeFromStatus = (status: number): ErrorCode =>
-	status >= 500 ? 'INTERNAL' : status === 404 ? 'NOT_FOUND' : status === 401 ? 'UNAUTHORIZED' : status === 402 ? 'PAYMENT_REQUIRED' : status === 409 ? 'SLOT_TAKEN' : 'INVALID_REQUEST';
+	status >= 500
+		? 'INTERNAL'
+		: status === 404
+			? 'NOT_FOUND'
+			: status === 401
+				? 'UNAUTHORIZED'
+				: status === 402
+					? 'PAYMENT_REQUIRED'
+					: status === 409
+						? 'SLOT_TAKEN'
+						: 'INVALID_REQUEST';
 
 export function resolveError(err: unknown): { status: number; message: string; tag: string; code: ErrorCode } {
 	const e = err as any;
@@ -73,7 +90,7 @@ export function resolveError(err: unknown): { status: number; message: string; t
 	const code: ErrorCode = isErrorCode(e?.code) ? e.code : (tagInfo?.code ?? codeFromStatus(status));
 	return {
 		status,
-		message: e?.message || (e?.cause instanceof Error ? e.cause.message : '') || 'Something went wrong. Please try again later.',
+		message: e?.message || (Error.isError(e?.cause) ? e.cause.message : '') || 'Something went wrong. Please try again later.',
 		tag: e?._tag ?? 'Defect',
 		code,
 	};

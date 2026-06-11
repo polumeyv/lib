@@ -1,3 +1,4 @@
+export * from './alert';
 export * from './crypto';
 export * from './customer';
 export * from './error-reporter';

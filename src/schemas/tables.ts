@@ -35,6 +35,7 @@
  */
 import * as S from 'effect/Schema';
 import { Uuid, UserSub, varchar, Email, Phone, Name, TimeRangeS } from './primitives';
+import { Effect } from 'effect';
 
 // ── pg ENUM types ─────────────────────────────────────────────────────────--
 /** `us_timezone` enum. */
@@ -100,17 +101,19 @@ export const Users = S.Struct({
 });
 export type Users = typeof Users.Type;
 
+export const Transports = S.Literals(['ble', 'cable', 'hybrid', 'internal', 'nfc', 'smart-card', 'usb']);
 export const PasskeyCredentials = S.Struct({
-	id: varchar(255),
-	sub: S.NullOr(UserSub),
-	webauthn_user_id: varchar(255),
+	id: S.String.check(S.isMaxLength(255)),
+	sub: UserSub,
+	webauthn_user_id: S.String.check(S.isMaxLength(255)),
 	public_key: S.Uint8Array,
-	counter: S.Number,
-	device_type: S.NullOr(varchar(32)),
-	backed_up: S.NullOr(S.Boolean), // no NOT NULL
-	transports: S.NullOr(S.Array(varchar(255))),
-	created_at: S.NullOr(S.Date), // no NOT NULL
+	counter: S.NumberFromString,
+	device_type: S.NullOr(S.Literals(['singleDevice', 'multiDevice'])),
+	backed_up: S.Boolean.pipe(S.withDecodingDefaultType(Effect.succeed(false))),
+	transports: S.NullOr(S.mutable(S.Array(Transports))),
+	created_at: S.Date,
 });
+
 export type PasskeyCredentials = typeof PasskeyCredentials.Type;
 
 export const OidcAccounts = S.Struct({
