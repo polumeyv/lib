@@ -76,6 +76,10 @@
 			"types": "./src/server/alert.ts",
 			"default": "./src/server/alert.ts"
 		},
+		"./server/shutdown": {
+			"types": "./src/server/shutdown.ts",
+			"default": "./src/server/shutdown.ts"
+		},
 		"./server/sms": {
 			"types": "./src/server/sms.ts",
 			"default": "./src/server/sms.ts"
