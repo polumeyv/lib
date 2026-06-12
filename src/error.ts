@@ -28,10 +28,11 @@ export const isErrorCode = (v: unknown): v is ErrorCode => typeof v === 'string'
 
 type RedirectStatus = 301 | 302 | 303 | 307 | 308;
 /**
- * Lib-side signals translated to SvelteKit's `invalid` / `error` / `redirect` at the
- * route boundary (each app's `db.ts run()`). Keeping these tagged classes here means
- * the lib never imports `@sveltejs/kit`, and route code never calls those framework
- * helpers inline — `Effect.fail(new HttpError(...))` instead of `error(...)`.
+ * Lib-side signals translated to SvelteKit's `invalid` / `error` / `redirect` once, in
+ * `@polumeyv/boundary`'s `makeRun` (each app's `run()` is built from it). Keeping the tagged
+ * classes here keeps this lib purely Effect logic — `@polumeyv/boundary` is where they meet
+ * the framework — and route code never calls those framework helpers inline:
+ * `Effect.fail(new HttpError(...))` instead of `error(...)`.
  */
 export class ValidationError extends Data.TaggedError('ValidationError')<{ readonly message: string }> {}
 export class HttpError extends Data.TaggedError('HttpError')<{ readonly status: number; readonly message: string }> {}
