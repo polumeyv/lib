@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.10.0
+
+[compare changes](https://github.com/polumeyv/lib/compare/v0.9.1...v0.10.0)
+
+### 💅 Refactors
+
+- ⚠️  Drop redis cache machinery, dead repo methods + unused config knobs ([6b4085d](https://github.com/polumeyv/lib/commit/6b4085d))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Drop redis cache machinery, dead repo methods + unused config knobs ([6b4085d](https://github.com/polumeyv/lib/commit/6b4085d))
+
+### ❤️ Contributors
+
+- Nic ([@Nic-Polumeyv](https://github.com/Nic-Polumeyv))
+
 ## v0.9.1
 
 [compare changes](https://github.com/polumeyv/lib/compare/v0.2.0...v0.9.1)
