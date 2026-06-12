@@ -1,17 +1,14 @@
 /**
  * @module @polumeyv/utils/server/alert
  *
- * Effect-bridged Amazon SES v2 email sender. Apps provide an `AlertConfig` layer; the service
+ * Effect-bridged Amazon SES v2 email sender. Apps construct the layer with their SES settings; the service
  * builds the `SESv2Client` once, exposes `send`, and (when `enabled: false`, e.g. dev) short-circuits
  * to a log-and-noop instead of hitting SES. The SES SDK is a plain npm package (not a Bun builtin),
  * so — unlike `Postgres`/`Redis` — there's no tag/live split: the whole service lives here.
  *
  * ```ts
  * // app db.ts:
- * Layer.provideMerge(
- *     Layer.mergeAll(AlertService.layer, …),
- *     Layer.succeed(AlertConfig, { region: PUBLIC_AWS_REGION, from: `noreply@${getHostname(PUBLIC_POLUMEYV_URL)}`, enabled: !dev }),
- * );
+ * Layer.mergeAll(AlertService.layer({ region: PUBLIC_AWS_REGION, from: `noreply@${getHostname(PUBLIC_POLUMEYV_URL)}`, enabled: !dev }), …)
  *
  * // any service / handler:
  * const alert = yield* AlertService;
@@ -34,15 +31,14 @@ export class AlertError extends Data.TaggedError('AlertError')<{ cause?: unknown
 	}
 }
 
-/** App-provided SES settings. `from` is the default sender address; `enabled: false` short-circuits `send` to a log-and-noop (dev / tests). */
-export class AlertConfig extends Context.Service<
-	AlertConfig,
-	{
-		readonly region: string;
-		readonly from: string;
-		readonly enabled: boolean;
-	}
->()('AlertConfig') {}
+/** SES settings for `AlertService.layer`. `from` is the sender address; `enabled: false` short-circuits `send` to a log-and-noop (dev / tests). */
+export interface AlertOptions {
+	readonly region: string;
+	readonly from: string;
+	readonly enabled: boolean;
+}
+
+class AlertConfig extends Context.Service<AlertConfig, AlertOptions>()('AlertConfig') {}
 
 /** A single email, sent from `AlertConfig.from`; `replyTo` / `attachments` are optional per-message. */
 export interface EmailInput {
@@ -54,7 +50,7 @@ export interface EmailInput {
 	attachments?: Attachment[];
 }
 
-/** Effect-bridged SES v2 sender. Apps provide `AlertConfig` and add `AlertService.layer`; consumers `yield* AlertService` for `{ send }`. */
+/** Effect-bridged SES v2 sender. Apps add `AlertService.layer(options)`; consumers `yield* AlertService` for `{ send }`. */
 export class AlertService extends Context.Service<AlertService>()('AlertService', {
 	make: Effect.gen(function* () {
 		const config = yield* AlertConfig;
@@ -84,5 +80,6 @@ export class AlertService extends Context.Service<AlertService>()('AlertService'
 		return { send };
 	}),
 }) {
-	static readonly layer = Layer.effect(this, this.make);
+	/** Config is layer input, not a separate app-provided service (cf. `IdpClient.layer`). */
+	static layer = (options: AlertOptions) => Layer.provide(Layer.effect(this, this.make), Layer.succeed(AlertConfig, options));
 }

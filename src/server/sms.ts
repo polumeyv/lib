@@ -15,23 +15,22 @@ export const isOptOutMessage = (text: string): boolean => ['STOP', 'UNSUBSCRIBE'
 /** Check if message is an opt-in keyword */
 export const isOptInMessage = (text: string): boolean => ['START', 'SUBSCRIBE', 'YES', 'UNSTOP'].includes(text.trim().toUpperCase());
 
-/** App-provided Telnyx credentials. `enabled: false` short-circuits `send` to a log-and-noop (dev / tests). */
-export class SmsConfig extends Context.Service<
-	SmsConfig,
-	{
-		readonly apiKey: string;
-		readonly phoneNumber: string;
-		readonly messagingProfileId: string;
-		readonly enabled: boolean;
-	}
->()('SmsConfig') {}
+/** Telnyx credentials for `SmsService.layer`. `enabled: false` short-circuits `send` to a log-and-noop (dev / tests). */
+export interface SmsOptions {
+	readonly apiKey: string;
+	readonly phoneNumber: string;
+	readonly messagingProfileId: string;
+	readonly enabled: boolean;
+}
+
+class SmsConfig extends Context.Service<SmsConfig, SmsOptions>()('SmsConfig') {}
 
 /** Effect-bridged Telnyx SMS sender. */
 export class SmsService extends Context.Service<SmsService>()('SmsService', {
 	make: Effect.gen(function* () {
 		const config = yield* SmsConfig;
 
-		const send = ({ to, message }: { to: string; message: string }): Effect.Effect<{ success: boolean; messageId?: string }, SmsError> =>
+		const send = ({ to, message }: { to: string; message: string }): Effect.Effect<{ success: boolean }, SmsError> =>
 			!config.enabled
 				? Effect.as(Effect.logInfo(`[DEV] Skipped SMS to ${to}: ${message.slice(0, 50)}`), { success: false })
 				: Effect.tryPromise({
@@ -51,8 +50,7 @@ export class SmsService extends Context.Service<SmsService>()('SmsService', {
 								const errorData = (await response.json()) as { errors?: Array<{ code?: string; detail?: string }> };
 								throw new Error(`Telnyx error: ${errorData.errors?.[0]?.code} — ${errorData.errors?.[0]?.detail}`);
 							}
-							const data = (await response.json()) as { data: { id: string } };
-							return { success: true as const, messageId: data.data.id };
+							return { success: true as const };
 						},
 						catch: (e) => new SmsError({ cause: e, message: `Failed to send SMS to ${to}` }),
 					}).pipe(Effect.tapError((e) => Effect.logError(`[SMS] ${e.cause}`)));
@@ -60,5 +58,6 @@ export class SmsService extends Context.Service<SmsService>()('SmsService', {
 		return { send };
 	}),
 }) {
-	static readonly layer = Layer.effect(this, this.make);
+	/** Config is layer input, not a separate app-provided service (cf. `IdpClient.layer`). */
+	static layer = (options: SmsOptions) => Layer.provide(Layer.effect(this, this.make), Layer.succeed(SmsConfig, options));
 }

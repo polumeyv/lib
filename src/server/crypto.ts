@@ -13,8 +13,12 @@
 import { Context, Effect, Layer, Option, SchemaGetter, SchemaIssue } from 'effect';
 import * as S from 'effect/Schema';
 
-/** App-provided passphrase. Derived to a 256-bit AES-GCM key via SHA-256 at service construction. */
-export class CryptoConfig extends Context.Service<CryptoConfig, { readonly key: string }>()('CryptoConfig') {}
+/** App-provided passphrase for `CryptoService.layer`. Derived to a 256-bit AES-GCM key via SHA-256 at service construction. */
+export interface CryptoOptions {
+	readonly key: string;
+}
+
+class CryptoConfig extends Context.Service<CryptoConfig, CryptoOptions>()('CryptoConfig') {}
 
 export class CryptoService extends Context.Service<CryptoService>()('CryptoService', {
 	make: Effect.gen(function* () {
@@ -65,5 +69,6 @@ export class CryptoService extends Context.Service<CryptoService>()('CryptoServi
 		};
 	}),
 }) {
-	static readonly layer = Layer.effect(this, this.make);
+	/** Config is layer input, not a separate app-provided service (cf. `IdpClient.layer`). */
+	static layer = (options: CryptoOptions) => Layer.provide(Layer.effect(this, this.make), Layer.succeed(CryptoConfig, options));
 }

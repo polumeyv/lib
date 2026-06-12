@@ -139,11 +139,8 @@ export class StripeCustomerService extends Context.Service<StripeCustomerService
 		const getPaymentMethod = <U extends StripeCustomerUser>(user: U) => Effect.map(getCustomer(user), ({ pm }) => pm);
 
 		return {
-			cacheRaw,
-			cacheCustomer,
 			validateCoupon,
 			createCustomer,
-			getCustomerFromDb,
 			getCustomer,
 			getInvoices,
 			createSetupIntent,
