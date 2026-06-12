@@ -2,9 +2,8 @@ import StripeSDK from 'stripe';
 import { Cause, Context, Data, Effect, Layer } from 'effect';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 
-/** The one Stripe API version pin for every app. `StripeService` defaults to it; bump it here and the whole
- *  platform moves together. `StripeConfig.apiVersion` remains a per-app override for staged migrations. */
-export const STRIPE_API_VERSION = '2026-04-22.dahlia';
+/** The one Stripe API version pin for every app — bump it here and the whole platform moves together. */
+const STRIPE_API_VERSION = '2026-04-22.dahlia';
 
 type StripeSDKError = InstanceType<typeof StripeSDK.errors.StripeError>;
 
@@ -23,7 +22,6 @@ export class StripeConfig extends Context.Service<
 	StripeConfig,
 	{
 		readonly secretKey: string;
-		readonly apiVersion?: string;
 		readonly webhookSecret?: string;
 	}
 >()('StripeConfig') {}
@@ -37,7 +35,7 @@ export class StripeService extends Context.Service<StripeService>()('StripeServi
 	make: Effect.gen(function* () {
 		const config = yield* StripeConfig;
 		// apiVersion typing is a literal union per Stripe SDK release; runtime accepts any string the API understands.
-		const stripe = new StripeSDK(config.secretKey, { apiVersion: (config.apiVersion ?? STRIPE_API_VERSION) as typeof StripeSDK.API_VERSION });
+		const stripe = new StripeSDK(config.secretKey, { apiVersion: STRIPE_API_VERSION as typeof StripeSDK.API_VERSION });
 
 		const call = <T>(fn: (s: StripeSDK) => Promise<T>) =>
 			Effect.tryPromise({ try: () => fn(stripe), catch: (e) => new StripeError({ err: e as StripeSDKError }) }).pipe(

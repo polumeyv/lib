@@ -19,8 +19,8 @@
  * ```
  *
  * `send` resolves to `void` and never wraps presentation — callers pass the final `html`/`text`
- * (branded shells, escaping, templating stay in the app). `from` defaults to `AlertConfig.from`;
- * `replyTo`/`attachments` are per-message overrides.
+ * (branded shells, escaping, templating stay in the app). The sender is always `AlertConfig.from`;
+ * `replyTo`/`attachments` are per-message options.
  */
 import { SESv2Client, SendEmailCommand, type Attachment } from '@aws-sdk/client-sesv2';
 import { Context, Data, Effect, Layer } from 'effect';
@@ -44,13 +44,12 @@ export class AlertConfig extends Context.Service<
 	}
 >()('AlertConfig') {}
 
-/** A single email. `from` defaults to `AlertConfig.from`; `replyTo` / `attachments` are optional per-message. */
+/** A single email, sent from `AlertConfig.from`; `replyTo` / `attachments` are optional per-message. */
 export interface EmailInput {
 	to: string;
 	subject: string;
 	html: string;
 	text: string;
-	from?: string;
 	replyTo?: string;
 	attachments?: Attachment[];
 }
@@ -68,7 +67,7 @@ export class AlertService extends Context.Service<AlertService>()('AlertService'
 						try: () =>
 							client.send(
 								new SendEmailCommand({
-									FromEmailAddress: email.from ?? config.from,
+									FromEmailAddress: config.from,
 									Destination: { ToAddresses: [email.to] },
 									Content: {
 										Simple: { Subject: utf8(email.subject), Body: { Html: utf8(email.html), Text: utf8(email.text) }, Attachments: email.attachments },

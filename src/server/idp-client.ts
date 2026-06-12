@@ -41,8 +41,6 @@ export interface IdpClientOptions {
 	clientId: string;
 	clientSecret: string;
 	redirectUri: string;
-	/** Space-separated OAuth scopes requested at /authorize. */
-	scope: string;
 	/**
 	 * Per-request cookie access (define it via SvelteKit's `getRequestEvent`). The client owns the session-cookie
 	 * names/paths/maxAges (`sessionCookiePolicy`); the app only supplies where cookies live.
@@ -245,7 +243,8 @@ export class IdpClient extends Context.Service<IdpClient>()('app/IdpClient', {
 					client_id: opts.clientId,
 					response_type: 'code',
 					redirect_uri: opts.redirectUri,
-					scope: opts.scope,
+					// Fixed like `sessionCookiePolicy` — every consumer is a first-party app of *our* IdP, same scopes everywhere.
+					scope: 'profile email',
 					code_challenge,
 					code_challenge_method: 'S256',
 				}))
@@ -263,20 +262,14 @@ export class IdpClient extends Context.Service<IdpClient>()('app/IdpClient', {
 		return {
 			/** Startup probe: forces discovery once (warming the cache) so a misconfigured/unreachable IdP fails boot. Run from the consumer's `init` hook. */
 			ready: Effect.asVoid(getResolved),
-			exchangeCode,
 			handleCallback,
 			revoke,
 			authenticate,
-			opts,
 		};
 	}),
 }) {
-	/** Primary layer (v4 convention): the app supplies discovery params + the per-request cookie accessor; `scope` defaults. Discovery is lazy; consumers call `ready` at boot to fail-fast (see `make`). */
-	static layer = (opts: Omit<IdpClientOptions, 'scope'> & { scope?: string }) =>
-		Layer.provide(
-			Layer.effect(IdpClient, IdpClient.make),
-			Layer.succeed(IdpClientConfig, { ...opts, scope: opts.scope ?? 'profile email' }),
-		);
+	/** Primary layer (v4 convention): the app supplies discovery params + the per-request cookie accessor. Discovery is lazy; consumers call `ready` at boot to fail-fast (see `make`). */
+	static layer = (opts: IdpClientOptions) => Layer.provide(Layer.effect(IdpClient, IdpClient.make), Layer.succeed(IdpClientConfig, opts));
 }
 
 /**

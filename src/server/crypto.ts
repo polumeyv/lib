@@ -14,11 +14,12 @@ import { Context, Effect, Layer, Option, SchemaGetter, SchemaIssue } from 'effec
 import * as S from 'effect/Schema';
 
 /** App-provided passphrase. Derived to a 256-bit AES-GCM key via SHA-256 at service construction. */
-export class CryptoConfig extends Context.Service<CryptoConfig, { readonly key: string; readonly iv_bytes?: number }>()('CryptoConfig') {}
+export class CryptoConfig extends Context.Service<CryptoConfig, { readonly key: string }>()('CryptoConfig') {}
 
 export class CryptoService extends Context.Service<CryptoService>()('CryptoService', {
 	make: Effect.gen(function* () {
-		const { key: passphrase, iv_bytes = 12 } = yield* CryptoConfig;
+		const { key: passphrase } = yield* CryptoConfig;
+		const iv_bytes = 12; // GCM nonce size — fixed by the wire format above; existing ciphertexts depend on it.
 
 		const aesKey = yield* Effect.promise(() =>
 			crypto.subtle

@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Array as Arr, Filter, Data, Option } from 'effect';
+import { Context, Effect, Layer, Array as Arr, Data, Option } from 'effect';
 import { Postgres } from './postgres';
 import type { Email, UserSub, UserName, AuthPayload } from '@polumeyv/lib/schemas';
 
@@ -25,12 +25,6 @@ export class BaseUserRepository extends Context.Service<BaseUserRepository>()('B
 		return {
 			getName,
 			updateName,
-			/** Fetch the `AuthPayload` (identity + terms-accepted flag) for a `sub`. Fails `NoSuchElementError` if absent. */
-			getAuthPayload: (sub: UserSub) =>
-				pg
-					.use((sql) => sql<AuthPayload[]>`SELECT sub, email, (terms_acc IS NOT NULL) AS terms_acc FROM users WHERE sub = ${sub}`)
-					.pipe(Effect.flatMap((rows) => Effect.fromOption(Arr.head(rows)))),
-
 			lookupUser: (email: Email) =>
 				pg
 					.use(
@@ -50,11 +44,6 @@ export class BaseUserRepository extends Context.Service<BaseUserRepository>()('B
 					),
 
 			lockUser: (sub: UserSub) => pg.use((sql) => sql`UPDATE users SET locked = TRUE WHERE sub = ${sub}`),
-			deleteBySub: (sub: UserSub) =>
-				Effect.tap(
-					pg.use((sql) => sql`DELETE FROM users WHERE sub = ${sub}`),
-					() => Effect.annotateLogs(Effect.logWarning('Account deleted'), { sub }),
-				),
 		};
 	}),
 }) {
