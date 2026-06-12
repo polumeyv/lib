@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.11.0
+
+[compare changes](https://github.com/polumeyv/lib/compare/v0.10.0...v0.11.0)
+
+### 💅 Refactors
+
+- ⚠️  Take config as layer input for Alert/Sms/Crypto services ([61168e5](https://github.com/polumeyv/lib/commit/61168e5))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️  Take config as layer input for Alert/Sms/Crypto services ([61168e5](https://github.com/polumeyv/lib/commit/61168e5))
+
+### ❤️ Contributors
+
+- Nic ([@Nic-Polumeyv](https://github.com/Nic-Polumeyv))
+
 ## v0.10.0
 
 [compare changes](https://github.com/polumeyv/lib/compare/v0.9.1...v0.10.0)
