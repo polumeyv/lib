@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.11.2
+
+[compare changes](https://github.com/polumeyv/lib/compare/v0.11.1...v0.11.2)
+
+### 🚀 Enhancements
+
+- **public:** Add date/time helpers, drop @internationalized/date ([d3a06ac](https://github.com/polumeyv/lib/commit/d3a06ac))
+
+### 🩹 Fixes
+
+- Bound outbound HTTP with timeouts and thread abort signals ([c826f5a](https://github.com/polumeyv/lib/commit/c826f5a))
+
+### ❤️ Contributors
+
+- Nic ([@Nic-Polumeyv](https://github.com/Nic-Polumeyv))
+
 ## v0.11.1
 
 [compare changes](https://github.com/polumeyv/lib/compare/v0.11.0...v0.11.1)
