@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.12.0
+
+[compare changes](https://github.com/polumeyv/lib/compare/v0.11.2...v0.12.0)
+
+### 🚀 Enhancements
+
+- **public,schemas:** ⚠️  Typed date/time kernel, drop @internationalized/date ([e57b88f](https://github.com/polumeyv/lib/commit/e57b88f))
+
+#### ⚠️ Breaking Changes
+
+- **public,schemas:** ⚠️  Typed date/time kernel, drop @internationalized/date ([e57b88f](https://github.com/polumeyv/lib/commit/e57b88f))
+
+### ❤️ Contributors
+
+- Nic ([@Nic-Polumeyv](https://github.com/Nic-Polumeyv))
+
 ## v0.11.2
 
 [compare changes](https://github.com/polumeyv/lib/compare/v0.11.1...v0.11.2)
