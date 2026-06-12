@@ -81,7 +81,7 @@ export type IsoMinutes = typeof IsoMinutes.Type;
 /**
  * One open/bookable range: an ISO wall-clock `start` (`HH:MM` or `HH:MM:SS`) plus an ISO-8601 minutes `dur`.
  * The single shape behind a business-hours window, a generated slot, and a held booking — so every consumer
- * does its time math through `@internationalized/date` (`parseTime` + `parseDuration`) off one definition,
+ * does its time math through `@polumeyv/lib/public` (`timeToMinutes` + `isoToMinutes`) off one definition,
  * and Postgres reads `start::time` / `dur::interval` directly.
  */
 export const TimeRangeS = S.Struct({
