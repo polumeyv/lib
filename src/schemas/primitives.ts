@@ -45,14 +45,18 @@ export const Slug = S.String.pipe(S.check(S.isPattern(/^[a-z0-9][a-z0-9-]{0,62}[
 
 export const Domain = S.String.pipe(S.check(S.isPattern(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/)));
 
-/** Calendar date, `YYYY-MM-DD`. */
-export const DateString = S.String.pipe(S.check(S.isPattern(/^\d{4}-\d{2}-\d{2}$/, { message: 'Invalid date (expected YYYY-MM-DD)' })));
+/** Calendar date, `YYYY-MM-DD`. Branded: construct via the schema (`DateString.make`) or the
+ *  `@polumeyv/lib/public` date helpers, never from a raw string. */
+export const DateString = S.String.pipe(S.check(S.isPattern(/^\d{4}-\d{2}-\d{2}$/, { message: 'Invalid date (expected YYYY-MM-DD)' })), S.brand('DateString'));
+export type DateString = typeof DateString.Type;
 
 /** Calendar month, `YYYY-MM`. */
 export const MonthString = S.String.pipe(S.check(S.isPattern(/^\d{4}-\d{2}$/, { message: 'Invalid month (expected YYYY-MM)' })));
 
-/** Wall-clock time, `HH:MM` (24-hour). */
-export const TimeString = S.String.pipe(S.check(S.isPattern(/^\d{2}:\d{2}$/, { message: 'Invalid time (expected HH:MM)' })));
+/** Wall-clock time, `HH:MM` (24-hour). Shares the `TimeString` brand with {@link TimeRangeS}'s looser
+ *  `HH:MM(:SS)` form — both mean "validated wall-clock time"; this strict form is for user input. */
+export const TimeString = S.String.pipe(S.check(S.isPattern(/^\d{2}:\d{2}$/, { message: 'Invalid time (expected HH:MM)' })), S.brand('TimeString'));
+export type TimeString = typeof TimeString.Type;
 
 /** ISO 8601 wall-clock date-time without zone, `YYYY-MM-DDTHH:MM`. */
 export const DateTimeString = S.String.pipe(S.check(S.isPattern(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, { message: 'Invalid date-time (expected YYYY-MM-DDTHH:MM)' })));
@@ -75,6 +79,7 @@ export type GridMinutes = typeof GridMinutes.Type;
 export const IsoMinutes = S.String.pipe(
 	S.check(S.isPattern(/^PT\d+M$/, { message: 'Invalid duration (expected PT<minutes>M)' })),
 	S.check(S.makeFilter((s) => Number(s.slice(2, -1)) % MINUTE_STEP === 0, { message: `Duration must be in ${MINUTE_STEP}-minute increments` })),
+	S.brand('IsoMinutes'),
 );
 export type IsoMinutes = typeof IsoMinutes.Type;
 
@@ -85,7 +90,7 @@ export type IsoMinutes = typeof IsoMinutes.Type;
  * and Postgres reads `start::time` / `dur::interval` directly.
  */
 export const TimeRangeS = S.Struct({
-	start: S.String.check(S.isPattern(/^\d{2}:\d{2}(:\d{2})?$/, { message: 'Invalid time (expected HH:MM or HH:MM:SS)' })),
+	start: S.String.pipe(S.check(S.isPattern(/^\d{2}:\d{2}(:\d{2})?$/, { message: 'Invalid time (expected HH:MM or HH:MM:SS)' })), S.brand('TimeString')),
 	dur: IsoMinutes,
 });
 export type TimeRange = typeof TimeRangeS.Type;
