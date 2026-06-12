@@ -98,14 +98,19 @@ export class IdpClient extends Context.Service<IdpClient>()('app/IdpClient', {
 			cur
 				? Effect.succeed([cur, cur] as const)
 				: Effect.gen(function* () {
-						// processDiscoveryResponse binds the response issuer to `publicAuthUrl`.
+						// processDiscoveryResponse binds the response issuer to `publicAuthUrl`. The per-attempt timeout
+						// (signal threaded into the request so it actually aborts) is what makes the retry schedule
+						// meaningful against a *hung* connection — without it nothing ever fails, so nothing retries.
 						const as = yield* Effect.tryPromise({
-							try: () =>
+							try: (signal) =>
 								oauth
-									.discoveryRequest(opts.publicAuthUrl, { algorithm: 'oauth2', ...httpOpts })
+									.discoveryRequest(opts.publicAuthUrl, { algorithm: 'oauth2', signal, ...httpOpts })
 									.then((res) => oauth.processDiscoveryResponse(opts.publicAuthUrl, res)),
 							catch: (cause) => new IdpClientError({ cause, message: Error.isError(cause) ? cause.message : 'IdP discovery failed' }),
-						}).pipe(Effect.retry(Schedule.both(Schedule.exponential('300 millis'), Schedule.recurs(6))));
+						}).pipe(
+							Effect.timeoutOrElse({ duration: '10 seconds', orElse: () => new IdpClientError({ message: 'IdP discovery timed out' }) }),
+							Effect.retry(Schedule.both(Schedule.exponential('300 millis'), Schedule.recurs(6))),
+						);
 
 						if (!as.authorization_endpoint)
 							return yield* new IdpClientError({ message: 'IdP discovery doc has no authorization_endpoint' });

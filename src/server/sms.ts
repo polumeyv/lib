@@ -34,7 +34,9 @@ export class SmsService extends Context.Service<SmsService>()('SmsService', {
 			!config.enabled
 				? Effect.as(Effect.logInfo(`[DEV] Skipped SMS to ${to}: ${message.slice(0, 50)}`), { success: false })
 				: Effect.tryPromise({
-						try: async () => {
+						// `tryPromise` hands us an AbortSignal wired to fiber interruption — thread it into fetch so the
+						// timeout below actually aborts the request instead of leaving it running in the background.
+						try: async (signal) => {
 							const response = await fetch(TELNYX_API_URL, {
 								method: 'POST',
 								headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.apiKey}` },
@@ -45,6 +47,7 @@ export class SmsService extends Context.Service<SmsService>()('SmsService', {
 									type: 'SMS',
 									messaging_profile_id: config.messagingProfileId,
 								}),
+								signal,
 							});
 							if (!response.ok) {
 								const errorData = (await response.json()) as { errors?: Array<{ code?: string; detail?: string }> };
@@ -53,7 +56,10 @@ export class SmsService extends Context.Service<SmsService>()('SmsService', {
 							return { success: true as const };
 						},
 						catch: (e) => new SmsError({ cause: e, message: `Failed to send SMS to ${to}` }),
-					}).pipe(Effect.tapError((e) => Effect.logError(`[SMS] ${e.cause}`)));
+					}).pipe(
+						Effect.timeoutOrElse({ duration: '10 seconds', orElse: () => new SmsError({ message: `Telnyx timed out sending to ${to}` }) }),
+						Effect.tapError((e) => Effect.logError(`[SMS] ${e.cause}`)),
+					);
 
 		return { send };
 	}),
