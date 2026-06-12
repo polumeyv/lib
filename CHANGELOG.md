@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.11.1
+
+[compare changes](https://github.com/polumeyv/lib/compare/v0.11.0...v0.11.1)
+
+### 📖 Documentation
+
+- Signal translation now lives in @polumeyv/boundary's makeRun ([169564b](https://github.com/polumeyv/lib/commit/169564b))
+
+### ❤️ Contributors
+
+- Nic ([@Nic-Polumeyv](https://github.com/Nic-Polumeyv))
+
 ## v0.11.0
 
 [compare changes](https://github.com/polumeyv/lib/compare/v0.10.0...v0.11.0)

@@ -1,6 +1,6 @@
 {
 	"name": "@polumeyv/lib",
-	"version": "0.11.0",
+	"version": "0.11.1",
 	"description": "Effect-based infrastructure + auth library for Bun applications",
 	"license": "MIT",
 	"publishConfig": {
