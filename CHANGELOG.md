@@ -1,5 +1,46 @@
 # Changelog
 
+## v0.9.1
+
+[compare changes](https://github.com/polumeyv/lib/compare/v0.2.0...v0.9.1)
+
+### 🚀 Enhancements
+
+- EncryptedString codec + OAuthAccountStore ([9839ed2](https://github.com/polumeyv/lib/commit/9839ed2))
+- **types:** Add ProProducts catalog type ([db34a5e](https://github.com/polumeyv/lib/commit/db34a5e))
+- **schemas:** Grid-minutes time model; Hours.ranges as {start,dur} ([58ee338](https://github.com/polumeyv/lib/commit/58ee338))
+- Provider/domain projection + composite schema updates; formatters, postgres, error tweaks + error test ([c330147](https://github.com/polumeyv/lib/commit/c330147))
+- Adapt to effect 4.0.0-beta.78 (schema/error APIs); Bun.* native globals; extend base tsconfig + add check script ([df547c5](https://github.com/polumeyv/lib/commit/df547c5))
+- **idp-client:** Own the session-cookie policy + shared callback choreography ([fd4af69](https://github.com/polumeyv/lib/commit/fd4af69))
+- Error-code registry + SessionExpiredError; stripe and user.repo rework ([5038e51](https://github.com/polumeyv/lib/commit/5038e51))
+- SideEffects:false + per-module schema/server subpath exports ([09e7c10](https://github.com/polumeyv/lib/commit/09e7c10))
+- DisposeOnShutdown runs ManagedRuntime finalizers on SIGTERM/SIGINT ([f21fe9b](https://github.com/polumeyv/lib/commit/f21fe9b))
+
+### 🔥 Performance
+
+- **user-repo:** Drop Redis name cache — read names from Postgres ([ebddb28](https://github.com/polumeyv/lib/commit/ebddb28))
+
+### 🩹 Fixes
+
+- **idp:** Send consumer Origin on server-side OAuth2 requests ([95cdf2a](https://github.com/polumeyv/lib/commit/95cdf2a))
+- **idp:** Retry OIDC discovery with backoff ([d123983](https://github.com/polumeyv/lib/commit/d123983))
+
+### 💅 Refactors
+
+- **lib:** Drop auth IdP-only modules (federation/jwt/passkey/session) now inlined into polumeyv-auth; keep idp-client ([4a36b39](https://github.com/polumeyv/lib/commit/4a36b39))
+- Reorganize lib — schemas module, server live/ split, idp-client + user repo into server, public barrel + s3/formatters ([318b52b](https://github.com/polumeyv/lib/commit/318b52b))
+- Standardize first-row extraction on Array.head ([0e09b89](https://github.com/polumeyv/lib/commit/0e09b89))
+
+### 🏡 Chore
+
+- Final cleanup — bump lib to 0.3.0, refresh README + CHANGELOG, consolidate scripts ([e17093c](https://github.com/polumeyv/lib/commit/e17093c))
+- Schema, server (postgres/redis), auth and user/booking updates ([e459262](https://github.com/polumeyv/lib/commit/e459262))
+- Extend the renamed root tsconfig.json ([eae43b0](https://github.com/polumeyv/lib/commit/eae43b0))
+
+### ❤️ Contributors
+
+- Nic ([@Nic-Polumeyv](https://github.com/Nic-Polumeyv))
+
 ## v0.9.0
 
 ### Added
