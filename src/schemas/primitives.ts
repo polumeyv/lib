@@ -31,13 +31,26 @@ export type UserSub = typeof UserSub.Type;
 /** `VARCHAR(n)` — a string capped at `n` characters (the only thing the DB validates on a free varchar). */
 export const varchar = (n: number) => S.String.check(S.isMaxLength(n));
 
+/** Integer USD cents — the canonical storage/compute unit for money. Brand a money column with this so a whole-dollars
+ *  value can't be passed where cents are expected; the dollars↔cents conversion lives in the `Dollars` form codec and the
+ *  `@polumeyv/lib/public` money helpers. A pure brand (no extra check) — the DB column already constrains the value, per
+ *  the {@link ./tables} convention of leaving integer columns as `S.Number`. */
+export const Cents = S.Number.pipe(S.brand('Cents'));
+export type Cents = typeof Cents.Type;
+
+/** Basis points — 1/100 of a percent (e.g. the platform fee withheld from a charge via Stripe `application_fee_amount`). */
+export const Bps = S.Number.pipe(S.brand('Bps'));
+export type Bps = typeof Bps.Type;
+
 export const Email = S.String.pipe(S.check(S.isPattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, { message: 'Please enter a valid email address' })));
 export type Email = typeof Email.Type;
 
 export const Phone = S.String.pipe(S.check(S.isPattern(/^\+[1-9]\d{1,14}$/, { message: 'Please enter a valid phone number' })));
 export type Phone = typeof Phone.Type;
 
-/** A person-name field: non-empty, ≤60 chars. Reused for first/last name so the shape is declared once. */
+export const PhoneNA = S.String.pipe(S.check(S.isPattern(/^\+(?:1|52)\d{10}$/, { message: 'Please enter a valid phone number' })));
+export type PhoneNA = typeof PhoneNA.Type;
+
 export const Name = S.NonEmptyString.check(S.isMaxLength(60));
 export type Name = typeof Name.Type;
 
@@ -47,7 +60,10 @@ export const Domain = S.String.pipe(S.check(S.isPattern(/^(?:[a-z0-9](?:[a-z0-9-
 
 /** Calendar date, `YYYY-MM-DD`. Branded: construct via the schema (`DateString.make`) or the
  *  `@polumeyv/lib/public` date helpers, never from a raw string. */
-export const DateString = S.String.pipe(S.check(S.isPattern(/^\d{4}-\d{2}-\d{2}$/, { message: 'Invalid date (expected YYYY-MM-DD)' })), S.brand('DateString'));
+export const DateString = S.String.pipe(
+	S.check(S.isPattern(/^\d{4}-\d{2}-\d{2}$/, { message: 'Invalid date (expected YYYY-MM-DD)' })),
+	S.brand('DateString'),
+);
 export type DateString = typeof DateString.Type;
 
 /** Calendar month, `YYYY-MM`. */
@@ -55,11 +71,16 @@ export const MonthString = S.String.pipe(S.check(S.isPattern(/^\d{4}-\d{2}$/, { 
 
 /** Wall-clock time, `HH:MM` (24-hour). Shares the `TimeString` brand with {@link TimeRangeS}'s looser
  *  `HH:MM(:SS)` form — both mean "validated wall-clock time"; this strict form is for user input. */
-export const TimeString = S.String.pipe(S.check(S.isPattern(/^\d{2}:\d{2}$/, { message: 'Invalid time (expected HH:MM)' })), S.brand('TimeString'));
+export const TimeString = S.String.pipe(
+	S.check(S.isPattern(/^\d{2}:\d{2}$/, { message: 'Invalid time (expected HH:MM)' })),
+	S.brand('TimeString'),
+);
 export type TimeString = typeof TimeString.Type;
 
 /** ISO 8601 wall-clock date-time without zone, `YYYY-MM-DDTHH:MM`. */
-export const DateTimeString = S.String.pipe(S.check(S.isPattern(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, { message: 'Invalid date-time (expected YYYY-MM-DDTHH:MM)' })));
+export const DateTimeString = S.String.pipe(
+	S.check(S.isPattern(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, { message: 'Invalid date-time (expected YYYY-MM-DDTHH:MM)' })),
+);
 
 /**
  * The booking grid: the smallest unit of time the whole booking domain speaks. Every duration (service length,
@@ -78,7 +99,9 @@ export type GridMinutes = typeof GridMinutes.Type;
  *  length, with minutes constrained to a multiple of {@link MINUTE_STEP}. */
 export const IsoMinutes = S.String.pipe(
 	S.check(S.isPattern(/^PT\d+M$/, { message: 'Invalid duration (expected PT<minutes>M)' })),
-	S.check(S.makeFilter((s) => Number(s.slice(2, -1)) % MINUTE_STEP === 0, { message: `Duration must be in ${MINUTE_STEP}-minute increments` })),
+	S.check(
+		S.makeFilter((s) => Number(s.slice(2, -1)) % MINUTE_STEP === 0, { message: `Duration must be in ${MINUTE_STEP}-minute increments` }),
+	),
 	S.brand('IsoMinutes'),
 );
 export type IsoMinutes = typeof IsoMinutes.Type;
@@ -90,7 +113,10 @@ export type IsoMinutes = typeof IsoMinutes.Type;
  * and Postgres reads `start::time` / `dur::interval` directly.
  */
 export const TimeRangeS = S.Struct({
-	start: S.String.pipe(S.check(S.isPattern(/^\d{2}:\d{2}(:\d{2})?$/, { message: 'Invalid time (expected HH:MM or HH:MM:SS)' })), S.brand('TimeString')),
+	start: S.String.pipe(
+		S.check(S.isPattern(/^\d{2}:\d{2}(:\d{2})?$/, { message: 'Invalid time (expected HH:MM or HH:MM:SS)' })),
+		S.brand('TimeString'),
+	),
 	dur: IsoMinutes,
 });
 export type TimeRange = typeof TimeRangeS.Type;
@@ -99,4 +125,5 @@ export const getHostname = (url: string) => new URL(url.includes('://') ? url : 
 
 /** Join a name's first + last into a display name, dropping blank/missing parts (no stray spaces).
  *  Takes the whole name object (e.g. `fullName(user.current.name)`); accepts any record with `f_name`/`l_name`. */
-export const fullName = (name?: { f_name?: string | null; l_name?: string | null }) => [name?.f_name, name?.l_name].filter(Boolean).join(' ');
+export const fullName = (name?: { f_name?: string | null; l_name?: string | null }) =>
+	[name?.f_name, name?.l_name].filter(Boolean).join(' ');

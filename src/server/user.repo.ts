@@ -43,7 +43,7 @@ export class BaseUserRepository extends Context.Service<BaseUserRepository>()('B
 						),
 					),
 
-			lockUser: (sub: UserSub) => pg.use((sql) => sql`UPDATE users SET locked = TRUE WHERE sub = ${sub}`),
+			lockUser: (sub: UserSub) => Effect.asVoid(pg.use((sql) => sql`UPDATE users SET locked = TRUE WHERE sub = ${sub}`)),
 		};
 	}),
 }) {

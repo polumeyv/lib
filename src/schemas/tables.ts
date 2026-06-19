@@ -34,7 +34,7 @@
  * (to `ADDRESS_TYPE` literals, etc.) lives in the derived projection — never here.
  */
 import * as S from 'effect/Schema';
-import { Uuid, UserSub, varchar, Email, Phone, Name, TimeRangeS } from './primitives';
+import { Uuid, UserSub, varchar, Email, Phone, Name, TimeRangeS, Bps, Cents } from './primitives';
 import { Effect } from 'effect';
 
 // ── pg ENUM types ─────────────────────────────────────────────────────────--
@@ -65,7 +65,7 @@ export type CRESENDS_PROVIDER_TYPE = typeof CRESENDS_PROVIDER_TYPE.Type;
 
 // ── Lookup-table value sets (the seeded `name` values; ids are FKs elsewhere) ─
 export const B_TYPE = S.Literals(['salon', 'barbershop', 'spa', 'nails', 'esthetics', 'makeup', 'tattoo', 'other']);
-export type BType = typeof B_TYPE.Type;
+export type B_TYPE = typeof B_TYPE.Type;
 
 export const CLIENT_STATUS = S.Literals(['active', 'inactive', 'vip', 'new', 'at_risk']);
 export type ClientStatus = typeof CLIENT_STATUS.Type;
@@ -175,7 +175,7 @@ export type BAccess = typeof BAccess.Type;
 export const AffiliateCommissions = S.Struct({
 	invoice_id: varchar(255),
 	referrer_sub: UserSub,
-	amount: S.Number,
+	amount: Cents,
 	transfer_id: varchar(255),
 	paid_at: S.Date,
 	created_at: S.Date,
@@ -279,7 +279,7 @@ export const Businesses = S.Struct({
 	send_reminders: S.Boolean,
 	allow_cancel: S.Boolean,
 	allow_reschedule: S.Boolean,
-	deposit_amount: S.Number, // cents
+	deposit_amount: S.Number, // cents when deposit_is_fixed, else a percentage — so NOT a `Cents` brand
 	deposit_is_fixed: S.Boolean,
 	cancellation_deadline_hours: S.Number,
 	max_advance_value: S.Number,
@@ -301,8 +301,8 @@ export const Businesses = S.Struct({
 	refund_deadline_days: S.Number,
 	refund_percentage: S.Number,
 	payout_schedule: S.Number, // SMALLINT REFERENCES payout_schedules(id)
-	minimum_payout: S.Number, // cents
-	platform_fee_bps: S.Number, // basis points withheld via application_fee_amount
+	minimum_payout: Cents, // cents
+	platform_fee_bps: Bps, // basis points withheld via application_fee_amount
 	charges_enabled: S.Boolean, // cached from Stripe account.updated
 	onboarding_complete: S.Boolean, // cached from Stripe account.updated
 	payouts_enabled: S.Boolean, // cached from Stripe account.updated
@@ -327,7 +327,7 @@ export const Services = S.Struct({
 	type: S.Number, // SMALLINT REFERENCES service_types(id)
 	name: varchar(255),
 	descr: S.NullOr(S.String),
-	amount: S.NullOr(S.Number), // cents (column is nullable — no NOT NULL)
+	amount: S.NullOr(Cents), // cents (column is nullable — no NOT NULL)
 	dur: S.NullOr(S.Number),
 	buf: S.Number,
 	active: S.Boolean,
@@ -340,7 +340,7 @@ export const Products = S.Struct({
 	b_id: Uuid,
 	name: varchar(255),
 	descr: S.NullOr(S.String),
-	price: S.NullOr(S.Number), // cents
+	price: S.NullOr(Cents), // cents
 	stock: S.NullOr(S.Number), // NULL = stock not tracked
 	active: S.Boolean,
 	updated: S.Date,
@@ -384,7 +384,7 @@ export const Bookings = S.Struct({
 	cs_id: S.NullOr(varchar(255)), // held: Stripe CheckoutSession id
 	time_slot: S.String, // TSTZRANGE
 	status: S.Number, // SMALLINT REFERENCES booking_statuses(id)
-	amount: S.Number, // cents
+	amount: Cents, // cents
 	notes: S.NullOr(S.String),
 	cancellation_reason: S.NullOr(S.String),
 	cancelled_by: S.NullOr(UserSub),
@@ -392,7 +392,7 @@ export const Bookings = S.Struct({
 	completed: S.NullOr(S.Date),
 	payment_intent_id: S.NullOr(varchar(255)),
 	payment_status: varchar(32), // 'none' | Stripe PI status | 'refunded' | 'disputed'
-	platform_fee_amount: S.NullOr(S.Number), // cents
+	platform_fee_amount: S.NullOr(Cents), // cents
 	transfer_id: S.NullOr(varchar(255)),
 	updated: S.Date,
 	reminder_sent_at: S.NullOr(S.Date), // added via ALTER TABLE
@@ -436,7 +436,7 @@ export const BookingsV = S.Struct({
 	customer_phone: S.NullOr(varchar(50)),
 	time_slot: S.String,
 	status: S.NullOr(BOOKING_STATUS), // bs.name via LEFT JOIN booking_statuses
-	amount: S.Number,
+	amount: Cents,
 	notes: S.NullOr(S.String),
 	cancellation_reason: S.NullOr(S.String),
 	cancelled_by: S.NullOr(UserSub),

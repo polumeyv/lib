@@ -14,7 +14,7 @@
  */
 import { Struct, Effect, SchemaTransformation } from 'effect';
 import * as S from 'effect/Schema';
-import { Email, Phone } from './primitives';
+import { Email, PhoneNA } from './primitives';
 import { UserName, DomainRow, ProBookings } from './projections';
 
 // ── Booking domain ───────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ import { UserName, DomainRow, ProBookings } from './projections';
 export const BookingUserInfo = S.Struct({
 	...UserName.fields,
 	email: Email,
-	phone: Phone,
+	phone: PhoneNA,
 });
 export type BookingUserInfo = typeof BookingUserInfo.Type;
 

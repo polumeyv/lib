@@ -1,4 +1,5 @@
 import { Data } from 'effect';
+import * as S from 'effect/Schema';
 
 export interface HttpStatusError {
 	readonly statusCode: number;
@@ -25,6 +26,12 @@ export const ERROR_CODES = [
 export type ErrorCode = (typeof ERROR_CODES)[number];
 /** Narrow an unknown wire value to a known `ErrorCode` (e.g. a `body.code` from an error response). */
 export const isErrorCode = (v: unknown): v is ErrorCode => typeof v === 'string' && (ERROR_CODES as readonly string[]).includes(v);
+
+/** The non-2xx wire body: the stable {@link ErrorCode} plus SvelteKit's `message`. The decode-side twin of
+ *  {@link resolveError}'s output — the one schema a cross-app client (`@crescuts/main`'s `pro` transport) decodes an
+ *  error response with, so the server's `message` survives the hop instead of being cast away and dropped. */
+export const ErrorBody = S.Struct({ code: S.Literals(ERROR_CODES), message: S.optional(S.String) });
+export type ErrorBody = typeof ErrorBody.Type;
 
 type RedirectStatus = 301 | 302 | 303 | 307 | 308;
 /**

@@ -196,10 +196,17 @@ export class IdpClient extends Context.Service<IdpClient>()('app/IdpClient', {
 									return { access_token: t.access_token, refresh_token: t.refresh_token, claims: decodeJwt(t.access_token) as T };
 								}),
 
-						catch: () => new NoSuchElementError(),
+						// DEBUG (temporary): keep the real cause as the error message so the tapError below can surface it.
+						catch: (cause) => new NoSuchElementError(Error.isError(cause) ? cause.message : String(cause)),
 					}),
 				),
-			).pipe(Effect.catchNoSuchElement);
+			).pipe(
+				// DEBUG (temporary): trace the automatic-refresh outcome. A failure here folds to None in `authenticate`,
+				// which then clears the cookies and redirects to the IdP — the sign-out being investigated.
+				Effect.tap(() => Effect.logInfo('idp refresh ok')),
+				Effect.tapError((e) => Effect.logWarning(`idp refresh failed: ${e.message || 'no refresh token'}`)),
+				Effect.catchNoSuchElement,
+			);
 
 		/** RFC 7009 token revocation — deletes the OAuth2 session on the auth server. */
 		const revoke = (token: string) =>

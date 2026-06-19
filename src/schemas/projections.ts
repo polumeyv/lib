@@ -15,6 +15,7 @@
 import * as S from 'effect/Schema';
 import { Struct, SchemaTransformation } from 'effect';
 import * as Tables from './tables';
+import { Cents } from './primitives';
 
 /** `users(sub, email)` — the minimal identity slice. */
 export const UserIdentity = Tables.Users.mapFields(Struct.pick(['sub', 'email']));
@@ -130,7 +131,7 @@ export type ProHours = typeof ProHours.Type;
 export const ProServices = S.Struct({
 	...Tables.Services.fields,
 	type: Tables.SERVICE_TYPE,
-	amount: S.Number,
+	amount: Cents,
 	dur: S.Number,
 	buf: S.NullOr(S.Number),
 });
@@ -139,7 +140,7 @@ export type ProServices = typeof ProServices.Type;
 /** products row with `price` asserted non-null. */
 export const ProProducts = S.Struct({
 	...Tables.Products.fields,
-	price: S.Number,
+	price: Cents,
 });
 export type ProProducts = typeof ProProducts.Type;
 
