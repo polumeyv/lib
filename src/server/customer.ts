@@ -56,7 +56,9 @@ export class StripeCustomerService extends Context.Service<StripeCustomerService
 
 		const createCustomer = <U extends StripeCustomerUser>(user: U) =>
 			Effect.andThen(
-				stripeCall((stripe) => stripe.customers.create({ email: user.email, metadata: { sub: user.sub } })),
+				// One Stripe customer per user: keyed on `sub` so a double-submit or the cache-sentinel ('0') recovery
+				// path can't mint duplicate customers. Stable params (same email/metadata) keep the 24h replay valid.
+				stripeCall((stripe) => stripe.customers.create({ email: user.email, metadata: { sub: user.sub } }, { idempotencyKey: `stripe-customer:${user.sub}` })),
 				(c) =>
 					((data = extractCustomer(c)) =>
 						Effect.as(Effect.all([pg.use((sql) => sql`UPDATE users SET stripe_cus_id = ${c.id} WHERE sub = ${user.sub}`), cacheCustomer(user.sub, data)]), data))(),
