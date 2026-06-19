@@ -21,13 +21,6 @@ import { Cents } from './primitives';
 export const UserIdentity = Tables.Users.mapFields(Struct.pick(['sub', 'email']));
 export type UserIdentity = typeof UserIdentity.Type;
 
-/** Identity plus a resolved boolean for terms acceptance (the row stores a nullable timestamp). */
-export const AuthPayload = S.Struct({
-	...UserIdentity.fields,
-	terms_acc: S.Boolean,
-});
-export type AuthPayload = typeof AuthPayload.Type;
-
 /** First/last name pulled straight from the users table — the canonical name shape. */
 export const UserName = Tables.Users.mapFields(Struct.pick(['f_name', 'l_name']));
 export type UserName = typeof UserName.Type;

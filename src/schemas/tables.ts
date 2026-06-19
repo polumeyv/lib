@@ -96,7 +96,6 @@ export const Users = S.Struct({
 	stripe_sub_id: S.NullOr(varchar(255)),
 	stripe_acct_id: S.NullOr(varchar(255)),
 	locked: S.Boolean,
-	terms_acc: S.NullOr(S.Date),
 	roles: S.Array(S.String),
 });
 export type Users = typeof Users.Type;

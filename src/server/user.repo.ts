@@ -1,12 +1,12 @@
 import { Context, Effect, Layer, Array as Arr, Data, Option } from 'effect';
 import { Postgres } from './postgres';
-import type { Email, UserSub, UserName, AuthPayload } from '@polumeyv/lib/schemas';
+import type { Email, UserSub, UserName, UserIdentity } from '@polumeyv/lib/schemas';
 
 // shared
 export type UserLookup = Data.TaggedEnum<{
 	Absent: {}; // no user → fresh signup
 	PermLocked: {}; // user exists, locked out
-	Found: { sub: UserSub; terms_acc: boolean; has_oidc: boolean }; // user, not locked
+	Found: { sub: UserSub; has_oidc: boolean }; // user, not locked
 }>;
 export const { Absent, PermLocked, Found, $match: matchLookup } = Data.taggedEnum<UserLookup>();
 
@@ -28,8 +28,8 @@ export class BaseUserRepository extends Context.Service<BaseUserRepository>()('B
 			lookupUser: (email: Email) =>
 				pg
 					.use(
-						(sql) => sql<(AuthPayload & { locked: boolean; has_oidc: boolean })[]>`
-				SELECT u.sub, u.locked, oa.sub IS NOT NULL AS has_oidc, u.terms_acc IS NOT NULL AS terms_acc
+						(sql) => sql<(UserIdentity & { locked: boolean; has_oidc: boolean })[]>`
+				SELECT u.sub, u.locked, oa.sub IS NOT NULL AS has_oidc
 				FROM users u LEFT JOIN oidc_accounts oa ON oa.sub = u.sub
 				WHERE u.email = ${email}`,
 					)
@@ -38,7 +38,7 @@ export class BaseUserRepository extends Context.Service<BaseUserRepository>()('B
 						Effect.map(
 							Option.match({
 								onNone: () => Absent(),
-								onSome: ({ locked, sub, terms_acc, has_oidc }) => (locked ? PermLocked() : Found({ sub, terms_acc, has_oidc })),
+								onSome: ({ locked, sub, has_oidc }) => (locked ? PermLocked() : Found({ sub, has_oidc })),
 							}),
 						),
 					),
