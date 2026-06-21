@@ -41,7 +41,7 @@ export const DomainRow = S.Struct({
 		S.check(S.isMaxLength(253)),
 		S.check(
 			S.isPattern(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/, {
-				message: 'Please enter a valid domain name (e.g. example.com)',
+				message: 'Enter a valid domain name (e.g. example.com)',
 			}),
 		),
 	),

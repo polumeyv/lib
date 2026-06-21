@@ -100,21 +100,6 @@ export const Users = S.Struct({
 });
 export type Users = typeof Users.Type;
 
-export const Transports = S.Literals(['ble', 'cable', 'hybrid', 'internal', 'nfc', 'smart-card', 'usb']);
-export const PasskeyCredentials = S.Struct({
-	id: S.String.check(S.isMaxLength(255)),
-	sub: UserSub,
-	webauthn_user_id: S.String.check(S.isMaxLength(255)),
-	public_key: S.Uint8Array,
-	counter: S.NumberFromString,
-	device_type: S.NullOr(S.Literals(['singleDevice', 'multiDevice'])),
-	backed_up: S.Boolean.pipe(S.withDecodingDefaultType(Effect.succeed(false))),
-	transports: S.NullOr(S.mutable(S.Array(Transports))),
-	created_at: S.Date,
-});
-
-export type PasskeyCredentials = typeof PasskeyCredentials.Type;
-
 export const OidcAccounts = S.Struct({
 	sub: UserSub,
 	provider: OAUTH_PROVIDER,
