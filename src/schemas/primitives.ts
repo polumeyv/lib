@@ -38,6 +38,10 @@ export const varchar = (n: number) => S.String.check(S.isMaxLength(n));
 export const Cents = S.Number.pipe(S.brand('Cents'));
 export type Cents = typeof Cents.Type;
 
+/** Non-negative integer USD cents for request/input boundaries that must reject negative money before persistence. */
+export const NonNegativeCents = S.Int.check(S.isGreaterThanOrEqualTo(0)).pipe(S.brand('Cents'));
+export type NonNegativeCents = typeof NonNegativeCents.Type;
+
 /** Basis points — 1/100 of a percent (e.g. the platform fee withheld from a charge via Stripe `application_fee_amount`). */
 export const Bps = S.Number.pipe(S.brand('Bps'));
 export type Bps = typeof Bps.Type;

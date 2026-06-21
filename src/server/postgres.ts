@@ -1,4 +1,4 @@
-import { Array as Arr, Context, Data, Effect } from 'effect';
+import { Cause, Context, Data, Effect, Schema as S } from 'effect';
 import type { HttpStatusError } from '@polumeyv/lib/error';
 
 // Postgres SQLSTATE → HTTP status. Specific codes override class-level defaults. This is the *only*
@@ -41,9 +41,13 @@ export class PostgresError
 }
 
 export interface PostgresImpl {
-	/** Run a query and get the **row set** back, as Postgres returns it. For a single row, destructure `const [row] = …`,
-	 *  or take the head explicitly: `.pipe(Effect.flatMap((rows) => Effect.fromOption(Arr.head(rows))))` (fails `NoSuchElementError`). */
+	/** Run a query and get the row set back, as Postgres returns it. */
 	use: <T>(fn: (sql: Bun.SQL) => T) => Effect.Effect<Awaited<T>, PostgresError, never>;
+	/** Run a query expected to return one row. Empty row sets fail with NoSuchElementError. */
+	one: <T>(fn: (sql: Bun.SQL) => T[] | Promise<T[]>) => Effect.Effect<T, PostgresError | Cause.NoSuchElementError, never>;
 }
+
+export const decodeRows = <Schema extends S.Top>(schema: Schema) => S.decodeUnknownEffect(S.mutable(S.Array(schema)));
+export const decodeOne = <Schema extends S.Top>(schema: Schema) => S.decodeUnknownEffect(schema);
 
 export class Postgres extends Context.Service<Postgres, PostgresImpl>()('Postgres') {}

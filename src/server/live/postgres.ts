@@ -6,7 +6,7 @@
  * `PostgresError`, and impl types) so the tag can be imported from client-reachable graphs without
  * dragging the `bun` builtin into the client bundle. Only server-only layer construction imports this.
  */
-import { Effect } from 'effect';
+import { Array as Arr, Effect } from 'effect';
 import { Postgres, PostgresError, type PostgresImpl } from '../postgres';
 
 /**
@@ -65,7 +65,8 @@ export const makePostgres = (config: PostgresConfig) =>
 				Effect.flatMap(Effect.try({ try: () => fn(sql), catch: toPgError }), (r) =>
 					r instanceof Promise ? Effect.tryPromise({ try: () => r, catch: toPgError }) : Effect.succeed(r as Awaited<T>),
 				);
-			const impl: PostgresImpl = { use };
+			const one = <T>(fn: (sql: Bun.SQL) => T[] | Promise<T[]>) => use(fn).pipe(Effect.flatMap((rows) => Effect.fromOption(Arr.head(rows))));
+			const impl: PostgresImpl = { use, one };
 			return Postgres.of(impl);
 		},
 	);
