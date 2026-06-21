@@ -33,7 +33,9 @@ export type BookingUserInfo = typeof BookingUserInfo.Type;
 
 /** Pro-side bookings list/detail: the `bookings` columns (via `ProBookings`) plus the join-only fields —
  *  range bounds as instants, joined service name, resolved customer name. */
-export const Booking = ProBookings.mapFields(Struct.pick(['id', 'sub', 'status', 'amount', 'notes', 'customer_email', 'customer_phone'])).pipe(
+export const Booking = ProBookings.mapFields(
+	Struct.pick(['id', 'sub', 'status', 'amount', 'notes', 'customer_email', 'customer_phone']),
+).pipe(
 	S.fieldsAssign({
 		start_ts: S.Date, // lower(time_slot)
 		end_ts: S.Date, // upper(time_slot)
@@ -69,8 +71,15 @@ export const OrderSchema = DomainRow.mapFields(Struct.pick(['name', 'provider'])
 	S.fieldsAssign({
 		forwarding_url: S.optional(
 			S.String.pipe(
-				S.decodeTo(S.String, SchemaTransformation.transform({ decode: (s) => (s.match(/^https?:\/\//) ? s : `https://${s}`), encode: (s) => s })),
-				S.check(S.isPattern(/^https?:\/\/([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(\/[\w.-]*)*\/?$/, { message: 'Invalid URL' })),
+				S.decodeTo(
+					S.String,
+					SchemaTransformation.transform({ decode: (s) => (s.match(/^https?:\/\//) ? s : `https://${s}`), encode: (s) => s }),
+				),
+				S.check(
+					S.isPattern(/^https?:\/\/([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(\/[\w.-]*)*\/?$/, {
+						message: 'Invalid URL',
+					}),
+				),
 				S.check(S.isMaxLength(255)),
 			),
 		),
