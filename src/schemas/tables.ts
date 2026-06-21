@@ -37,8 +37,6 @@ import * as S from 'effect/Schema';
 import { Uuid, UserSub, varchar, Email, Phone, Name, TimeRangeS, Bps, Cents } from './primitives';
 import { Effect } from 'effect';
 
-// ── pg ENUM types ─────────────────────────────────────────────────────────--
-/** `us_timezone` enum. */
 export const TIMEZONE = S.Literals([
 	'America/New_York',
 	'America/Chicago',
@@ -51,19 +49,15 @@ export const TIMEZONE = S.Literals([
 ]);
 export type TIMEZONE = typeof TIMEZONE.Type;
 
-/** `oauth_provider` enum. */
 export const OAUTH_PROVIDER = S.Literals(['google']);
 export type OAUTH_PROVIDER = typeof OAUTH_PROVIDER.Type;
 
-/** `oauth_status` enum. */
 export const OAUTH_STATUS = S.Literals(['active', 'revoked', 'hijacked']);
 export type OAUTH_STATUS = typeof OAUTH_STATUS.Type;
 
-/** `cresends.provider_type` enum. */
 export const CRESENDS_PROVIDER_TYPE = S.Literals(['smtp', 'google_workspace', 'microsoft_365']);
 export type CRESENDS_PROVIDER_TYPE = typeof CRESENDS_PROVIDER_TYPE.Type;
 
-// ── Lookup-table value sets (the seeded `name` values; ids are FKs elsewhere) ─
 export const B_TYPE = S.Literals(['salon', 'barbershop', 'spa', 'nails', 'esthetics', 'makeup', 'tattoo', 'other']);
 export type B_TYPE = typeof B_TYPE.Type;
 
@@ -79,12 +73,20 @@ export type BookingStatus = typeof BOOKING_STATUS.Type;
 export const PAYOUT_SCHEDULE = S.Literals(['daily', 'weekly', 'biweekly', 'monthly']);
 export type PayoutSchedule = typeof PAYOUT_SCHEDULE.Type;
 
-export const SERVICE_CATEGORY = S.Literals(['haircut', 'color', 'styling', 'treatment', 'extension', 'nails', 'wax', 'facial', 'makeup', 'massage', 'other']);
+export const SERVICE_CATEGORY = S.Literals([
+	'haircut',
+	'color',
+	'styling',
+	'treatment',
+	'extension',
+	'nails',
+	'wax',
+	'facial',
+	'makeup',
+	'massage',
+	'other',
+]);
 export type ServiceCategory = typeof SERVICE_CATEGORY.Type;
-
-// =============================================================================
-// IDENTITY / AUTH
-// =============================================================================
 
 export const Users = S.Struct({
 	sub: UserSub,
@@ -99,36 +101,6 @@ export const Users = S.Struct({
 	roles: S.Array(S.String),
 });
 export type Users = typeof Users.Type;
-
-export const OidcAccounts = S.Struct({
-	sub: UserSub,
-	provider: OAUTH_PROVIDER,
-	subject: varchar(255),
-	email: S.NullOr(varchar(255)),
-	locale: S.NullOr(varchar(10)),
-	access_token: S.NullOr(S.String),
-	refresh_token: S.NullOr(S.String),
-	scopes: S.NullOr(S.String),
-	token_expires: S.NullOr(S.Date),
-	status: OAUTH_STATUS,
-});
-export type OidcAccounts = typeof OidcAccounts.Type;
-
-export const RiscEvents = S.Struct({
-	jti: varchar(255),
-	event_type: varchar(255),
-	subject: S.NullOr(varchar(255)),
-	received: S.Date,
-});
-export type RiscEvents = typeof RiscEvents.Type;
-
-export const Oauth2Clients = S.Struct({
-	client_id: varchar(64),
-	client_secret: S.String,
-	redirect_uris: S.Array(S.String),
-	scope: S.String,
-});
-export type Oauth2Clients = typeof Oauth2Clients.Type;
 
 export const Addresses = S.Struct({
 	id: Uuid,
@@ -165,10 +137,6 @@ export const AffiliateCommissions = S.Struct({
 	created_at: S.Date,
 });
 export type AffiliateCommissions = typeof AffiliateCommissions.Type;
-
-// =============================================================================
-// PER-APP USER EXTENSION TABLES
-// =============================================================================
 
 export const CrescutsUsers = S.Struct({
 	sub: UserSub,
@@ -211,10 +179,6 @@ export const CresendsUsers = S.Struct({
 });
 export type CresendsUsers = typeof CresendsUsers.Type;
 
-// =============================================================================
-// LOOKUP TABLES (seeded; `name` holds the value-set literals above)
-// =============================================================================
-
 export const BTypes = S.Struct({ id: S.Number, name: B_TYPE });
 export type BTypes = typeof BTypes.Type;
 
@@ -232,10 +196,6 @@ export type PayoutSchedules = typeof PayoutSchedules.Type;
 
 export const Categories = S.Struct({ id: S.Number, name: SERVICE_CATEGORY });
 export type Categories = typeof Categories.Type;
-
-// =============================================================================
-// BUSINESS CORE
-// =============================================================================
 
 export const Businesses = S.Struct({
 	b_id: Uuid,
@@ -389,11 +349,6 @@ export const StripeCustomers = S.Struct({
 });
 export type StripeCustomers = typeof StripeCustomers.Type;
 
-// =============================================================================
-// GUESTS
-// (Booking holds are no longer a separate table — a hold is a `bookings` row with status `held`; see `Bookings` above.)
-// =============================================================================
-
 export const Guests = S.Struct({
 	guest_id: Uuid,
 	email: varchar(255),
@@ -405,10 +360,6 @@ export const Guests = S.Struct({
 	updated: S.Date,
 });
 export type Guests = typeof Guests.Type;
-
-// =============================================================================
-// VIEW: bookings_v (status as name, range bounds as text, joined service dur)
-// =============================================================================
 
 export const BookingsV = S.Struct({
 	id: Uuid,
@@ -432,11 +383,6 @@ export const BookingsV = S.Struct({
 	dur: S.NullOr(S.Number), // s.dur via LEFT JOIN services
 });
 export type BookingsV = typeof BookingsV.Type;
-
-// =============================================================================
-// cresends.* (PowerDNS + cresends dashboard). Managed largely by PowerDNS;
-// JSONB blobs are left as `S.Unknown` since no app-side shape is fixed.
-// =============================================================================
 
 export const CustomSequencers = S.Struct({
 	id: Uuid,
