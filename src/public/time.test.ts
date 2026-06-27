@@ -1,29 +1,13 @@
 import { describe, it, expect } from 'bun:test';
 import { Duration } from 'effect';
-import { timeToMinutes, minutesToTime, addToTime, isoToDuration, durationToIso, minutesToIso, isoToMinutes } from './time';
+import { addToTime, isoToDuration, durationToIso, minutesToIso } from './time';
 import { TimeString, IsoMinutes } from '../schemas/primitives';
 
-// These helpers replaced `@internationalized/date`'s parseTime/Time.add/parseDuration as the one place the
-// booking domain does wall-clock math, with Effect Duration as the in-memory length type and the brands
-// keeping dates/times/durations from mixing. The wrap/balance cases below are exactly the behaviors the old
-// library guaranteed (Time.add balances hours and wraps at midnight; toString zero-pads), pinned so the swap
-// is inert.
+// The brand boundary on top of `@polumeyv/utilities`' pure minute math: Effect Duration is the in-memory length
+// type and the brands keep dates/times/durations from mixing. The wrap/balance cases pin the behaviors the old
+// `@internationalized/date` swap guaranteed (Time.add balances hours and wraps at midnight; toString zero-pads).
 
 const t = TimeString.make;
-
-describe('timeToMinutes', () => {
-	it('parses HH:MM', () => expect(timeToMinutes(t('09:30'))).toBe(570));
-	it('parses midnight', () => expect(timeToMinutes(t('00:00'))).toBe(0));
-	it('parses end of day', () => expect(timeToMinutes(t('23:59'))).toBe(1439));
-});
-
-describe('minutesToTime', () => {
-	it('zero-pads', () => expect(minutesToTime(570)).toBe(t('09:30')));
-	it('renders midnight', () => expect(minutesToTime(0)).toBe(t('00:00')));
-	it('wraps a full day to midnight', () => expect(minutesToTime(1440)).toBe(t('00:00')));
-	it('wraps past midnight', () => expect(minutesToTime(1500)).toBe(t('01:00')));
-	it('wraps negative values backward', () => expect(minutesToTime(-30)).toBe(t('23:30')));
-});
 
 describe('addToTime', () => {
 	it('adds within the hour', () => expect(addToTime(t('09:00'), Duration.minutes(30))).toBe(t('09:30')));
@@ -42,22 +26,4 @@ describe('isoToDuration / durationToIso', () => {
 describe('minutesToIso', () => {
 	it('builds the canonical wire form', () => expect(minutesToIso(480)).toBe(IsoMinutes.make('PT480M')));
 	it('rejects off-grid minutes', () => expect(() => minutesToIso(13)).toThrow());
-});
-
-describe('isoToMinutes (lenient legacy reader)', () => {
-	it('parses the canonical form', () => expect(isoToMinutes('PT45M')).toBe(45));
-	it('tolerates an hours component (legacy rows)', () => expect(isoToMinutes('PT1H30M')).toBe(90));
-	it('tolerates hours-only', () => expect(isoToMinutes('PT2H')).toBe(120));
-	it('degrades malformed input to 0', () => {
-		expect(isoToMinutes('45')).toBe(0);
-		expect(isoToMinutes('')).toBe(0);
-		expect(isoToMinutes('P1DT45M')).toBe(0);
-	});
-});
-
-describe('TimeString brand accepts Postgres HH:MM:SS rows via TimeRangeS', () => {
-	it('timeToMinutes ignores seconds', () => {
-		// TimeRangeS.start carries the same brand with a looser HH:MM(:SS) pattern; minute math drops seconds.
-		expect(timeToMinutes('09:30:15' as TimeString)).toBe(570);
-	});
 });

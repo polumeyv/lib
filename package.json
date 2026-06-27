@@ -121,6 +121,7 @@
 		"effect": "catalog:infra"
 	},
 	"dependencies": {
+		"@polumeyv/utilities": "workspace:*",
 		"@aws-sdk/client-sesv2": "^3.1062.0",
 		"cookie": "^1.1.1",
 		"jose": "^6.2.2",
