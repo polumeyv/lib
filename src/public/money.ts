@@ -1,11 +1,8 @@
 /**
- * Currency presentation + arithmetic helpers — the one home for money rounding so every fee/tip uses the same policy.
+ * Brand-typed money math — the one home for fee/tip rounding policy. Currency *presentation* (`formatUSD`) is pure
+ * and lives in `@polumeyv/utilities`.
  */
 import type { Bps, Cents } from '../schemas/primitives';
-
-/** Integer USD cents → "$1,234.56". */
-export const formatUSD = (cents: number): string =>
-	new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 
 /** Platform fee withheld from a base charge: `bps` basis points of `base` cents, rounded to whole cents. The single
  *  basis-point rounding policy (previously inlined in `connectSplit`). */
