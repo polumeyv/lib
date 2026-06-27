@@ -35,7 +35,6 @@
  */
 import * as S from 'effect/Schema';
 import { Uuid, UserSub, varchar, Email, Phone, Name, TimeRangeS, Bps, Cents } from './primitives';
-import { Effect } from 'effect';
 
 export const TIMEZONE = S.Literals([
 	'America/New_York',
@@ -54,9 +53,6 @@ export type OAUTH_PROVIDER = typeof OAUTH_PROVIDER.Type;
 
 export const OAUTH_STATUS = S.Literals(['active', 'revoked', 'hijacked']);
 export type OAUTH_STATUS = typeof OAUTH_STATUS.Type;
-
-export const CRESENDS_PROVIDER_TYPE = S.Literals(['smtp', 'google_workspace', 'microsoft_365']);
-export type CRESENDS_PROVIDER_TYPE = typeof CRESENDS_PROVIDER_TYPE.Type;
 
 export const B_TYPE = S.Literals(['salon', 'barbershop', 'spa', 'nails', 'esthetics', 'makeup', 'tattoo', 'other']);
 export type B_TYPE = typeof B_TYPE.Type;
@@ -393,30 +389,6 @@ export const CustomSequencers = S.Struct({
 	created_at: S.NullOr(S.Date),
 });
 export type CustomSequencers = typeof CustomSequencers.Type;
-
-export const Domains = S.Struct({
-	id: S.Number, // SERIAL
-	name: varchar(255),
-	master: S.NullOr(varchar(128)),
-	last_check: S.NullOr(S.Number),
-	type: S.String,
-	notified_serial: S.NullOr(S.Number), // BIGINT
-	account: S.NullOr(varchar(40)),
-	options: S.NullOr(S.String),
-	catalog: S.NullOr(S.String),
-	sub: S.NullOr(UserSub),
-	provider: CRESENDS_PROVIDER_TYPE,
-	registrar: S.NullOr(varchar(50)),
-	registrar_domain_id: S.NullOr(varchar(255)),
-	ms_verification_txt: S.NullOr(varchar(255)),
-	expires_at: S.NullOr(S.Date),
-	display_names: S.NullOr(S.Array(S.Unknown)), // JSONB DEFAULT '[]'
-	mailboxes: S.NullOr(S.Array(S.Unknown)), // JSONB DEFAULT '[]'
-	ns_check: S.NullOr(S.Unknown), // JSONB DEFAULT NULL
-	provisioned: S.NullOr(S.Boolean), // no NOT NULL
-	created_at: S.NullOr(S.Date),
-});
-export type Domains = typeof Domains.Type;
 
 export const Records = S.Struct({
 	id: S.Number, // BIGSERIAL

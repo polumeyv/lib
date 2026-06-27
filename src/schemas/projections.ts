@@ -29,31 +29,6 @@ export type UserName = typeof UserName.Type;
 export const PaymentMethod = S.NullOr(S.Struct({ brand: S.String, last4: S.String }));
 export type PaymentMethod = typeof PaymentMethod.Type;
 
-/**
- * App-facing view of a cresends `domains` row: the columns the UI actually renders plus the computed
- * `has_dns`/`ns_pointed` flags (derived from the DNS lookup / `ns_check`, not stored as plain columns).
- * `name` normalizes to lowercase and is validated as a hostname; `provider` reuses the canonical enum.
- */
-export const DomainRow = S.Struct({
-	id: S.Number,
-	name: S.String.pipe(
-		S.decodeTo(S.String.check(S.isLowercased()), SchemaTransformation.toLowerCase()),
-		S.check(S.isMaxLength(253)),
-		S.check(
-			S.isPattern(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/, {
-				message: 'Enter a valid domain name (e.g. example.com)',
-			}),
-		),
-	),
-	provider: Tables.CRESENDS_PROVIDER_TYPE,
-	provisioned: S.Boolean,
-	created_at: S.Date,
-	has_dns: S.Boolean,
-	ns_pointed: S.Boolean,
-});
-export type DomainRow = typeof DomainRow.Type;
-export type ProviderType = typeof DomainRow.Type.provider;
-
 // ── Pro-app DB projections ───────────────────────────────────────────────────
 // App-contract views of the canonical tables: lookup-id columns surfaced as their
 // names (`b_type`/`status`/`type` → the literal), and form-friendly strictness

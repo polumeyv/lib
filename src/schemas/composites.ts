@@ -15,7 +15,7 @@
 import { Struct, Effect, SchemaTransformation } from 'effect';
 import * as S from 'effect/Schema';
 import { Email, PhoneNA } from './primitives';
-import { UserName, DomainRow, ProBookings } from './projections';
+import { UserName, ProBookings } from './projections';
 
 // ── Booking domain ───────────────────────────────────────────────────────────
 
@@ -59,32 +59,3 @@ export const UserBookingRow = ProBookings.mapFields(Struct.pick(['id', 'b_id', '
 	}),
 );
 export type UserBookingRow = typeof UserBookingRow.Type;
-
-/** Email local-part naming styles for a domain's mailboxes (e.g. `fn.ln` → `james.smith`). The runtime map
- *  with label/example/derive logic lives in `@cresends/utils`; this is the canonical value set. */
-export const LocalPartStyle = S.Literals(['fn.ln', 'fi.ln', 'fn.li', 'fn', 'fnln']);
-export type LocalPartStyle = typeof LocalPartStyle.Type;
-
-/** A domain as submitted on the cresends order form: `name`/`provider` off the domain view plus the
- *  order-only fields (optional forwarding URL, the requested mailbox names, and the local-part style). */
-export const OrderSchema = DomainRow.mapFields(Struct.pick(['name', 'provider'])).pipe(
-	S.fieldsAssign({
-		forwarding_url: S.optional(
-			S.String.pipe(
-				S.decodeTo(
-					S.String,
-					SchemaTransformation.transform({ decode: (s) => (s.match(/^https?:\/\//) ? s : `https://${s}`), encode: (s) => s }),
-				),
-				S.check(
-					S.isPattern(/^https?:\/\/([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(\/[\w.-]*)*\/?$/, {
-						message: 'Invalid URL',
-					}),
-				),
-				S.check(S.isMaxLength(255)),
-			),
-		),
-		names: S.Array(UserName).pipe(S.withDecodingDefaultType(Effect.succeed([] as readonly (typeof UserName.Type)[]))),
-		local_part_style: LocalPartStyle.pipe(S.withDecodingDefaultType(Effect.succeed('fn.ln' as const))),
-	}),
-);
-export type OrderSchema = typeof OrderSchema.Type;
