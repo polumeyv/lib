@@ -2,6 +2,7 @@ import { Context, Data, Effect, Exit, Layer, Option, Result, Schedule, Synchroni
 import * as oauth from 'oauth4webapi';
 import { createRemoteJWKSet, jwtVerify, decodeJwt, type JWTPayload } from 'jose';
 import type { HttpStatusError } from '@polumeyv/lib/error';
+import type { Cookies } from '@sveltejs/kit';
 import { NoSuchElementError } from 'effect/Cause';
 
 /**
@@ -12,16 +13,6 @@ export class IdpClientError extends Data.TaggedError('IdpClientError')<{ cause?:
 	get statusCode() {
 		return 500 as const;
 	}
-}
-
-/**
- * Minimal structural cookie surface (SvelteKit's `Cookies` satisfies it) so this lib stays framework-free.
- * Supplied per-request via `IdpClientOptions.cookies` — e.g. `() => getRequestEvent().cookies`.
- */
-export interface CookieJar {
-	get(name: string): string | undefined;
-	set(name: string, value: string, opts: { path: string; maxAge: number }): void;
-	delete(name: string, opts: { path: string }): void;
 }
 
 /**
@@ -42,10 +33,10 @@ export interface IdpClientOptions {
 	clientSecret: string;
 	redirectUri: string;
 	/**
-	 * Per-request cookie access (define it via SvelteKit's `getRequestEvent`). The client owns the session-cookie
-	 * names/paths/maxAges (`sessionCookiePolicy`); the app only supplies where cookies live.
+	 * Per-request cookie access — SvelteKit's `Cookies`, supplied via `() => getRequestEvent().cookies`. The client
+	 * owns the session-cookie names/paths/maxAges (`sessionCookiePolicy`); the app only supplies where cookies live.
 	 */
-	cookies: () => CookieJar;
+	cookies: () => Cookies;
 }
 
 export class IdpClientConfig extends Context.Service<IdpClientConfig, IdpClientOptions>()('app/IdpClientConfig') {}

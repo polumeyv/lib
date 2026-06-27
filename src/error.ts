@@ -36,9 +36,9 @@ export type ErrorBody = typeof ErrorBody.Type;
 type RedirectStatus = 301 | 302 | 303 | 307 | 308;
 /**
  * Lib-side signals translated to SvelteKit's `invalid` / `error` / `redirect` once, in
- * `@polumeyv/boundary`'s `makeRun` (each app's `run()` is built from it). Keeping the tagged
- * classes here keeps this lib purely Effect logic — `@polumeyv/boundary` is where they meet
- * the framework — and route code never calls those framework helpers inline:
+ * `@polumeyv/lib/kit`'s `makeRun` (each app's `run()` is built from it). Keeping the tagged
+ * classes here keeps the rest of the lib purely Effect logic — `@polumeyv/lib/kit` is the one
+ * subpath where they meet the framework — and route code never calls those framework helpers inline:
  * `Effect.fail(new HttpError(...))` instead of `error(...)`.
  */
 export class ValidationError extends Data.TaggedError('ValidationError')<{ readonly message: string }> {}
