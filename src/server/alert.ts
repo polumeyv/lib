@@ -66,7 +66,11 @@ export class AlertService extends Context.Service<AlertService>()('AlertService'
 									FromEmailAddress: config.from,
 									Destination: { ToAddresses: [email.to] },
 									Content: {
-										Simple: { Subject: utf8(email.subject), Body: { Html: utf8(email.html), Text: utf8(email.text) }, Attachments: email.attachments },
+										Simple: {
+											Subject: utf8(email.subject),
+											Body: { Html: utf8(email.html), Text: utf8(email.text) },
+											Attachments: email.attachments,
+										},
 									},
 									...(email.replyTo ? { ReplyToAddresses: [email.replyTo] } : {}),
 								}),
