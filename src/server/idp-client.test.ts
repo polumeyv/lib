@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'bun:test';
 import { Cause, Effect, Exit } from 'effect';
-import { IdpClient, sessionCookiePolicy, type CookieJar } from './idp-client';
+import type { Cookies } from '@sveltejs/kit';
+import { IdpClient, sessionCookiePolicy } from './idp-client';
 
 // The cookie policy is the point of the centralization: per-app copies are how the dashboard once shipped with the
 // access/refresh maxAges swapped (15-minute refresh cookie → silent OAuth round-trip every navigation). Pin the
@@ -14,7 +15,7 @@ describe('sessionCookiePolicy', () => {
 describe('handleCallback', () => {
 	it('fails with a clear sign-in-again error when the pkce_ver cookie is absent', async () => {
 		const deleted: string[] = [];
-		const jar: CookieJar = { get: () => undefined, set: () => {}, delete: (name) => void deleted.push(name) };
+		const jar: Cookies = { get: () => undefined, getAll: () => [], set: () => {}, delete: (name) => void deleted.push(name), serialize: () => '' };
 		// Discovery is lazy, and the missing-verifier guard fires before any exchange — no IdP needed.
 		const exit = await Effect.runPromiseExit(
 			Effect.andThen(IdpClient, (idp) => idp.handleCallback(new URL('https://app.example/oauth2/callback?code=x'), () => Effect.void)).pipe(

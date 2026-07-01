@@ -56,6 +56,10 @@
 			"types": "./src/server/redis.ts",
 			"default": "./src/server/redis.ts"
 		},
+		"./server/runtime": {
+			"types": "./src/server/runtime.ts",
+			"default": "./src/server/runtime.ts"
+		},
 		"./server/stripe": {
 			"types": "./src/server/stripe.ts",
 			"default": "./src/server/stripe.ts"
@@ -115,10 +119,20 @@
 		"./public": {
 			"types": "./src/public/index.ts",
 			"default": "./src/public/index.ts"
+		},
+		"./kit": {
+			"types": "./src/kit/index.ts",
+			"default": "./src/kit/index.ts"
 		}
 	},
 	"peerDependencies": {
-		"effect": "catalog:infra"
+		"effect": "catalog:infra",
+		"@sveltejs/kit": "catalog:"
+	},
+	"peerDependenciesMeta": {
+		"@sveltejs/kit": {
+			"optional": true
+		}
 	},
 	"dependencies": {
 		"@polumeyv/utilities": "workspace:*",

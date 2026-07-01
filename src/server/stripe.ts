@@ -89,13 +89,18 @@ export const createConnectOnboardingLink = (
  * failures are logged and PROPAGATE — the route returns non-2xx and Stripe redelivers, so handlers must stay
  * idempotent (they are: idempotency-keyed transfers, `ON CONFLICT` inserts, plain UPDATEs).
  */
-export const handleStripeWebhook = <Ret extends Effect.Effect<any, any, any>>(request: Request, dispatch: (event: StripeSDK.Event) => Ret) =>
+export const handleStripeWebhook = <Ret extends Effect.Effect<any, any, any>>(
+	request: Request,
+	dispatch: (event: StripeSDK.Event) => Ret,
+) =>
 	Effect.flatMap(StripeService, (stripe) =>
 		Effect.promise(() => request.text()).pipe(
 			Effect.flatMap((body) => {
 				const signature = request.headers.get('stripe-signature');
 				return signature
-					? stripe.verifyWebhook(body, signature).pipe(Effect.mapError(() => new Cause.IllegalArgumentError('Webhook signature verification failed')))
+					? stripe
+							.verifyWebhook(body, signature)
+							.pipe(Effect.mapError(() => new Cause.IllegalArgumentError('Webhook signature verification failed')))
 					: Effect.fail(new Cause.IllegalArgumentError('Missing stripe-signature header'));
 			}),
 			Effect.tap((event) => Effect.logInfo('[stripe:webhook]', event.type, event.id)),
