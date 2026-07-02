@@ -15,9 +15,5 @@ export const addToTime = (time: TimeString, duration: Duration.Duration): TimeSt
 /** Strict wire duration → `Duration`. The brand guarantees the `PT<minutes>M` form, so this never fails. */
 export const isoToDuration = (iso: IsoMinutes): Duration.Duration => Duration.minutes(Number(iso.slice(2, -1)));
 
-/** `Duration` → the canonical wire form `PT<minutes>M`. Throws (via the brand's checks) if the duration
- *  is not whole grid minutes — off-grid lengths must never reach the wire. */
-export const durationToIso = (duration: Duration.Duration): IsoMinutes => minutesToIso(Duration.toMinutes(duration));
-
 /** Whole minutes → `PT<minutes>M`, for the editor paths that genuinely work in minute numbers. */
 export const minutesToIso = (minutes: number): IsoMinutes => IsoMinutes.make(`PT${minutes}M`);
